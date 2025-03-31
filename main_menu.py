@@ -1,6 +1,6 @@
 from aiogram import Router, types
 from aiogram.filters import Command
-from aiogram import F  # Импортируем F для фильтрации текста
+from aiogram import F
 
 router = Router()
 
@@ -35,6 +35,35 @@ async def back_to_main_menu(message: types.Message):
         "📋 Вы в главном меню. Выберите действие:",
         reply_markup=types.ReplyKeyboardMarkup(
             keyboard=main_menu_kb,
+            resize_keyboard=True
+        )
+    )
+
+@router.message(F.text == "Погода")
+async def go_to_weather(message: types.Message):
+    """
+    Обработчик кнопки "Погода".
+    Перенаправляет пользователя в модуль погоды.
+    """
+    from handlers import weather_kb  # Импорт клавиатуры из модуля погоды
+    await message.answer(
+        "🌤️ Вы перешли в модуль погоды. Выберите действие:",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=weather_kb,
+            resize_keyboard=True
+        )
+    )
+
+@router.message(F.text == "Тревога")
+async def go_to_alerts(message: types.Message):
+    """
+    Обработчик кнопки "Тревога".
+    Перенаправляет пользователя в модуль тревог.
+    """
+    await message.answer(
+        "🚨 Модуль тревог (в разработке). Здесь можно настроить уведомления.",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="Назад в меню")]],
             resize_keyboard=True
         )
     )

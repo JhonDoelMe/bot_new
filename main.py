@@ -6,8 +6,8 @@ import logging
 
 from config import BOT_TOKEN
 from main_menu import router as main_menu_router  # Основное меню
-from handlers import router as weather_router     # Погода
-from currency import router as currency_router    # Курс валют
+from handlers import router as weather_router     # Модуль "Погода"
+from currency import router as currency_router    # Модуль "Курс валют"
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +21,7 @@ bot = Bot(
 dp = Dispatcher()
 
 # Регистрация маршрутов
-dp.include_router(main_menu_router)  # Модуль "Основное меню"
+dp.include_router(main_menu_router)  # Основное меню
 dp.include_router(weather_router)   # Модуль "Погода"
 dp.include_router(currency_router)  # Модуль "Курс валют"
 
