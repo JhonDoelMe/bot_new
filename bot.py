@@ -124,8 +124,8 @@ async def get_weather(message: types.Message):
 
             # Ищем прогноз на завтра
             for item in forecast_data["list"]:
-                forecast_time = item["dt_txt"].split()[0]
-                if forecast_time == tomorrow_date:
+                forecast_time = datetime.strptime(item["dt_txt"], "%Y-%m-%d %H:%M:%S")
+                if forecast_time.date() == tomorrow.date():
                     temp_tomorrow = item["main"]["temp"]
                     feels_like_tomorrow = item["main"]["feels_like"]
                     description_tomorrow = item["weather"][0]["description"].capitalize()
