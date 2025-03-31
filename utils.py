@@ -1,3 +1,4 @@
+import os  # Добавляем импорт модуля os
 import json
 import logging
 from datetime import datetime
