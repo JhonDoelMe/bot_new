@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import aiohttp
 from aiogram import BaseMiddleware
 from datetime import datetime, timedelta
+from aiogram.client.default import DefaultBotProperties  # Новый импорт для DefaultBotProperties
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -47,7 +48,10 @@ class ThrottlingMiddleware(BaseMiddleware):
         return await handler(event, data)
 
 # Инициализация бота
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)  # Устанавливаем parse_mode через DefaultBotProperties
+)
 dp = Dispatcher()
 
 # Клавиатура
