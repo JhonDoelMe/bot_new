@@ -1,74 +1,13 @@
-import os
-import json
-import logging
-import asyncio
-from datetime import datetime, timedelta
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
-from dotenv import load_dotenv
 import aiohttp
-from aiogram.client.default import DefaultBotProperties
+from config import WEATHER_API_KEY
+from utils import load_cities, save_city, get_wind_direction
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Загрузка конфигурации
-load_dotenv()
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
-
-if not BOT_TOKEN or not WEATHER_API_KEY:
-    raise ValueError("Необходимо указать BOT_TOKEN и WEATHER_API_KEY в .env файле.")
-
-# Инициализация бота
-bot = Bot(
-    token=BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
-dp = Dispatcher()
-
-# Путь к файлу с городами
-CITIES_FILE = "cities.json"
-
-# Функция для чтения данных из файла
-def load_cities():
-    if not os.path.exists(CITIES_FILE):
-        with open(CITIES_FILE, "w", encoding="utf-8") as f:
-            json.dump({}, f, ensure_ascii=False)
-    with open(CITIES_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        logger.info(f"Загружены данные из cities.json: {data}")
-        return data
-
-# Функция для записи данных в файл
-def save_city(user_id, city):
-    cities = load_cities()
-    cities[str(user_id)] = city
-    with open(CITIES_FILE, "w", encoding="utf-8") as f:
-        json.dump(cities, f, ensure_ascii=False)
-    logger.info(f"Сохранён город '{city}' для пользователя {user_id}")
-
-# Функция для определения направления ветра
-def get_wind_direction(degrees):
-    if 337.5 <= degrees <= 360 or 0 <= degrees < 22.5:
-        return "⬆️ Север"
-    elif 22.5 <= degrees < 67.5:
-        return "↗️ Северо-восток"
-    elif 67.5 <= degrees < 112.5:
-        return "➡️ Восток"
-    elif 112.5 <= degrees < 157.5:
-        return "↘️ Юго-восток"
-    elif 157.5 <= degrees < 202.5:
-        return "⬇️ Юг"
-    elif 202.5 <= degrees < 247.5:
-        return "↙️ Юго-запад"
-    elif 247.5 <= degrees < 292.5:
-        return "⬅️ Запад"
-    elif 292.5 <= degrees < 337.5:
-        return "↖️ Северо-запад"
+# Инициализация роутера
+router = Router()
 
 # Клавиатура
 main_kb = [
@@ -77,7 +16,7 @@ main_kb = [
 ]
 
 # Команда /start
-@dp.message(Command("start"))
+@router.message(Command("start"))
 async def cmd_start(message: types.Message):
     user_id = message.from_user.id
     cities = load_cities()
@@ -97,7 +36,7 @@ async def cmd_start(message: types.Message):
         )
 
 # Обработчик ввода города
-@dp.message(F.text)
+@router.message(F.text)
 async def process_city_input(message: types.Message):
     user_id = message.from_user.id
     city = message.text.strip()
@@ -127,7 +66,7 @@ async def process_city_input(message: types.Message):
     )
 
 # Обработчик кнопки "Мой город"
-@dp.message(F.text == "Мой город")
+@router.message(F.text == "Мой город")
 async def my_city_weather(message: types.Message):
     user_id = message.from_user.id
     cities = load_cities()
@@ -137,7 +76,6 @@ async def my_city_weather(message: types.Message):
         return
 
     city = cities[str(user_id)]
-    logger.info(f"Получен запрос погоды для города: {city}")
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -174,21 +112,12 @@ async def my_city_weather(message: types.Message):
                 )
 
     except Exception as e:
-        logger.error(f"Ошибка: {e}")
         await message.answer("❌ Не удалось получить данные. Проверьте название города.")
 
 # Обработчик кнопки "Изменить город"
-@dp.message(F.text == "Изменить город")
+@router.message(F.text == "Изменить город")
 async def change_city(message: types.Message):
     await message.answer(
         "Введите новое название города:",
         reply_markup=types.ReplyKeyboardRemove()
     )
-
-# Запуск бота
-async def main():
-    logger.info("Бот запущен.")
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
