@@ -39,14 +39,17 @@ def load_cities():
         with open(CITIES_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False)
     with open(CITIES_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+        data = json.load(f)
+        logger.info(f"Загружены данные из cities.json: {data}")
+        return data
 
 # Функция для записи данных в файл
 def save_city(user_id, city):
     cities = load_cities()
-    cities[str(user_id)] = city  # Сохраняем город в исходном регистре
+    cities[str(user_id)] = city
     with open(CITIES_FILE, "w", encoding="utf-8") as f:
         json.dump(cities, f, ensure_ascii=False)
+    logger.info(f"Сохранён город '{city}' для пользователя {user_id}")
 
 # Функция для определения направления ветра
 def get_wind_direction(degrees):
@@ -97,7 +100,7 @@ async def cmd_start(message: types.Message):
 @dp.message(F.text)
 async def process_city_input(message: types.Message):
     user_id = message.from_user.id
-    city = message.text.strip()  # Не преобразуем в нижний регистр
+    city = message.text.strip()
 
     if not city.isprintable():
         await message.answer("❌ Название города содержит недопустимые символы.")
@@ -134,6 +137,7 @@ async def my_city_weather(message: types.Message):
         return
 
     city = cities[str(user_id)]
+    logger.info(f"Получен запрос погоды для города: {city}")
 
     try:
         async with aiohttp.ClientSession() as session:
