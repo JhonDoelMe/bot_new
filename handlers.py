@@ -2,8 +2,8 @@ from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.utils.markdown import hbold
 import aiohttp
-import logging
 from datetime import datetime, timedelta
+import logging
 
 from config import WEATHER_API_KEY
 from utils import load_cities, save_city, get_wind_direction, load_reminders, save_reminder
@@ -12,12 +12,13 @@ logger = logging.getLogger(__name__)
 
 router = Router()
 
-# Основная клавиатура с добавленными кнопками
-main_kb = [
+# Клавиатура модуля "Погода"
+weather_kb = [
     [types.KeyboardButton(text="Мой город")],
     [types.KeyboardButton(text="Изменить город")],
     [types.KeyboardButton(text="Напоминать утром")],
-    [types.KeyboardButton(text="Отключить напоминание")]
+    [types.KeyboardButton(text="Отключить напоминание")],
+    [types.KeyboardButton(text="Назад в меню")]
 ]
 
 @router.message(Command("start"))
@@ -25,7 +26,7 @@ async def cmd_start(message: types.Message):
     """
     Обработчик команды /start.
     Если город не сохранён, просит ввести название города,
-    иначе предлагает выбрать действие.
+    иначе предлагает выбрать действие в модуле "Погода".
     """
     user_id = message.from_user.id
     cities = load_cities()
@@ -39,7 +40,7 @@ async def cmd_start(message: types.Message):
         await message.answer(
             "🌤️ Привет! Выберите действие:",
             reply_markup=types.ReplyKeyboardMarkup(
-                keyboard=main_kb,
+                keyboard=weather_kb,
                 resize_keyboard=True
             )
         )
@@ -189,4 +190,19 @@ async def change_city(message: types.Message):
     await message.answer(
         "Введите новое название города:",
         reply_markup=types.ReplyKeyboardRemove()
+    )
+
+@router.message(F.text.lower() == "назад в меню")
+async def back_to_main_menu(message: types.Message):
+    """
+    Обработчик для кнопки "Назад в меню".
+    Возвращает пользователя в главное меню.
+    """
+    from main_menu import main_menu_kb  # Импорт клавиатуры основного меню
+    await message.answer(
+        "📋 Вы в главном меню. Выберите действие:",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=main_menu_kb,
+            resize_keyboard=True
+        )
     )
