@@ -11,11 +11,15 @@ currency_kb = [
     [types.KeyboardButton(text="Назад в меню")]
 ]
 
+# Список необходимых валют
+FILTER_CURRENCIES = ["USD", "EUR", "RUB", "GBP", "PLN"]
+
 @router.message(F.text.lower() == "курс валют")
 async def get_currency_rates(message: types.Message):
     """
     Обработчик кнопки "Курс валют".
     Получает курсы валют на текущую дату из API НБУ и отправляет пользователю.
+    Выводятся только выбранные валюты: USD, EUR, RUB, GBP, PLN.
     """
     try:
         # Форматируем текущую дату для запроса
@@ -37,11 +41,17 @@ async def get_currency_rates(message: types.Message):
                     await message.answer("⚠️ Не удалось получить информацию о курсах валют.")
                     return
 
+                # Фильтруем данные по нужным валютам
+                filtered_data = [item for item in data if item["cc"] in FILTER_CURRENCIES]
+                if not filtered_data:
+                    await message.answer("⚠️ Не удалось найти курсы для выбранных валют.")
+                    return
+
                 # Формируем сообщение с курсами валют
                 rates = "\n".join([
                     f"💵 {item['txt']} ({item['cc']}): {item['rate']} грн"
                     + (f" за {item['unit']} единиц" if 'unit' in item else "")
-                    for item in data
+                    for item in filtered_data
                 ])
 
                 await message.answer(
