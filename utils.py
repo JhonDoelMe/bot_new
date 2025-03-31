@@ -17,15 +17,15 @@ def load_cities():
     with open(CITIES_FILE, "r", encoding="utf-8") as f:
         data = json.load(f)
         logger.info(f"Загружены данные из cities.json: {data}")
-        return data
+        return {k: v.strip() for k, v in data.items()}  # Очищаем значения от пробелов
 
 # Функция для записи данных в файл
 def save_city(user_id, city):
     cities = load_cities()
-    cities[str(user_id)] = city
+    cities[str(user_id)] = city.strip()  # Сохраняем город без лишних пробелов
     with open(CITIES_FILE, "w", encoding="utf-8") as f:
         json.dump(cities, f, ensure_ascii=False)
-    logger.info(f"Сохранён город '{city}' для пользователя {user_id}")
+    logger.info(f"Сохранён город '{city.strip()}' для пользователя {user_id}")
 
 # Функция для определения направления ветра
 def get_wind_direction(degrees):

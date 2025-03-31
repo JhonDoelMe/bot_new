@@ -76,6 +76,7 @@ async def my_city_weather(message: types.Message):
         return
 
     city = cities[str(user_id)]
+    logger.info(f"Получен запрос погоды для города: '{city}'")
 
     try:
         async with aiohttp.ClientSession() as session:
@@ -112,6 +113,7 @@ async def my_city_weather(message: types.Message):
                 )
 
     except Exception as e:
+        logger.error(f"Ошибка при получении погоды: {e}")
         await message.answer("❌ Не удалось получить данные. Проверьте название города.")
 
 # Обработчик кнопки "Изменить город"
