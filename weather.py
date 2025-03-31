@@ -7,65 +7,62 @@ from datetime import datetime
 
 from config import WEATHER_API_KEY
 from utils import get_user_city, get_wind_direction
-from keyboards import weather_kb, main_menu_kb # Импортируем клавиатуры
+# Импортируем ТОЛЬКО клавиатуры и тексты кнопок из keyboards
+from keyboards import (
+    weather_kb, main_menu_kb,
+    kb_weather_text, kb_get_weather_now_text, kb_change_city_text # Добавляем kb_change_city_text
+)
+
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-# ... (WEATHER_ICONS остается без изменений)
+# Иконки теперь не нужны для фильтров, но оставляем для вывода
 WEATHER_ICONS = {
-    "01d": "☀️", "01n": "🌙",
-    "02d": "🌤️", "02n": "☁️",
-    "03d": "☁️", "03n": "☁️",
-    "04d": "☁️", "04n": "☁️",
-    "09d": "🌧️", "09n": "🌧️",
-    "10d": "🌦️", "10n": "🌧️",
-    "11d": "⛈️", "11n": "⛈️",
-    "13d": "❄️", "13n": "❄️",
-    "50d": "🌫️", "50n": "🌫️",
+    "01d": "☀️", "01n": "🌙", "02d": "🌤️", "02n": "☁️", "03d": "☁️", "03n": "☁️",
+    "04d": "☁️", "04n": "☁️", "09d": "🌧️", "09n": "🌧️", "10d": "🌦️", "10n": "🌧️",
+    "11d": "⛈️", "11n": "⛈️", "13d": "❄️", "13n": "❄️", "50d": "🌫️", "50n": "🌫️",
 }
 
 
-@router.message(StateFilter(None), F.text == "Погода 🌤️") # Точное совпадение
+# Фильтр для "Погода"
+@router.message(StateFilter(None), F.text == kb_weather_text)
 async def handle_weather_menu(message: types.Message):
-    """
-    Обработчик кнопки "Погода".
-    Переводит пользователя в раздел погоды.
-    """
-    logger.info(f"Пользователь {message.from_user.id} нажал 'Погода'")
+    # ... (логика без изменений) ...
+    logger.info(f"Пользователь {message.from_user.id} нажал '{kb_weather_text}'")
     city = get_user_city(message.from_user.id)
     if not city:
         await message.answer(
-            "Сначала выберите город в меню 'Изменить город ✏️', чтобы я мог показать погоду.",
-            reply_markup=main_menu_kb # Возврат в главное меню, т.к. без города здесь делать нечего
+            f"Сначала выберите город в меню '{kb_change_city_text}', чтобы я мог показать погоду.",
+            reply_markup=main_menu_kb
         )
         return
-
     await message.answer(
-        f"🌤️ Погода для города: <b>{city}</b>\n"
-        "Нажмите кнопку ниже, чтобы узнать текущую погоду.",
+        f"🌤️ Погода для города: <b>{city}</b>\n" # Оставим эмодзи в тексте ответа
+        f"Нажмите кнопку '{kb_get_weather_now_text}', чтобы узнать текущую погоду.",
         reply_markup=weather_kb,
         parse_mode="HTML"
     )
 
-@router.message(StateFilter(None), F.text == "Узнать погоду сейчас 🌦️") # Точное совпадение
+
+# Фильтр для "Узнать погоду сейчас"
+@router.message(StateFilter(None), F.text == kb_get_weather_now_text)
 async def handle_get_weather(message: types.Message):
-    """
-    Обработчик кнопки "Узнать погоду сейчас".
-    Запрашивает погоду для сохраненного города пользователя.
-    """
-    logger.info(f"Пользователь {message.from_user.id} запросил текущую погоду")
+    # ... (логика получения погоды без изменений) ...
+    logger.info(f"Пользователь {message.from_user.id} запросил '{kb_get_weather_now_text}'")
     user_id = message.from_user.id
     city = get_user_city(user_id)
 
     if not city:
+        # ... (ответ без изменений)
         await message.answer(
-             "Не могу найти ваш сохраненный город. Пожалуйста, установите его через 'Изменить город ✏️'.",
+             f"Не могу найти ваш сохраненный город. Пожалуйста, установите его через '{kb_change_city_text}'.",
              reply_markup=main_menu_kb # Возвращаем в главное меню
         )
         return
 
     if not WEATHER_API_KEY:
+         # ... (ответ без изменений)
         await message.answer(
             "❌ Ключ API погоды не настроен. Не могу получить данные.",
             reply_markup=weather_kb # Оставляем в меню погоды
@@ -73,18 +70,14 @@ async def handle_get_weather(message: types.Message):
         logger.warning(f"Попытка получить погоду для {city} без API ключа.")
         return
 
-    # Показываем сообщение об ожидании
     processing_message = await message.answer("⏳ Получаю данные о погоде...", reply_markup=types.ReplyKeyboardRemove())
-
     url = f"http://api.openweathermap.org/data/2.5/weather"
     params = {
-        'q': city,
-        'appid': WEATHER_API_KEY,
-        'units': 'metric', # Градусы Цельсия
-        'lang': 'ru'       # Язык описания погоды
+        'q': city, 'appid': WEATHER_API_KEY, 'units': 'metric', 'lang': 'ru'
     }
 
     try:
+        # ... (блок try/except для API без изменений, включая форматирование вывода с эмодзи)
         async with aiohttp.ClientSession() as session:
             async with session.get(url, params=params, timeout=10) as response:
                 logger.debug(f"Запрос погоды для {city}. Статус: {response.status}")
@@ -101,7 +94,7 @@ async def handle_get_weather(message: types.Message):
                     pressure_mmhg = round(pressure_hpa * 0.750062)
                     description = data['weather'][0]['description'].capitalize()
                     icon_code = data['weather'][0]['icon']
-                    weather_icon = WEATHER_ICONS.get(icon_code, "❓")
+                    weather_icon = WEATHER_ICONS.get(icon_code, "❓") # Оставляем эмодзи в выводе
                     wind_speed = data['wind']['speed']
                     wind_deg = data['wind'].get('deg')
                     wind_dir_str = get_wind_direction(wind_deg) if wind_deg is not None else ""
@@ -113,7 +106,7 @@ async def handle_get_weather(message: types.Message):
 
                     weather_report = (
                         f"📍 <b>{city_name}</b>\n"
-                        f"{weather_icon} {description}\n\n"
+                        f"{weather_icon} {description}\n\n" # Оставляем эмодзи в выводе
                         f"🌡️ Температура: <b>{temp:.1f}°C</b>\n"
                         f"🤔 Ощущается как: {feels_like:.1f}°C\n"
                         f"💧 Влажность: {humidity}%\n"
