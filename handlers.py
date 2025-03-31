@@ -1,22 +1,23 @@
 from aiogram import Router, types, F
 from aiogram.filters import Command
-from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
 import aiohttp
 import logging
 from datetime import datetime, timedelta
 
 from config import WEATHER_API_KEY
-from utils import load_cities, save_city, get_wind_direction
+from utils import load_cities, save_city, get_wind_direction, load_reminders, save_reminder
 
 logger = logging.getLogger(__name__)
 
 router = Router()
 
-# Основная клавиатура
+# Основная клавиатура с добавленными кнопками
 main_kb = [
     [types.KeyboardButton(text="Мой город")],
-    [types.KeyboardButton(text="Изменить город")]
+    [types.KeyboardButton(text="Изменить город")],
+    [types.KeyboardButton(text="Напоминать утром")],
+    [types.KeyboardButton(text="Отключить напоминание")]
 ]
 
 @router.message(Command("start"))
@@ -151,6 +152,33 @@ async def my_city_weather(message: types.Message):
     except Exception as e:
         logger.error(f"Необработанная ошибка при получении погоды: {e}")
         await message.answer("❌ Что-то пошло не так. Попробуйте позже.")
+
+@router.message(F.text.lower() == "напоминать утром")
+async def enable_reminder(message: types.Message):
+    """
+    Обработчик для кнопки "Напоминать утром".
+    Включает напоминания для пользователя.
+    """
+    user_id = message.from_user.id
+    reminders = load_reminders()
+    reminders[str(user_id)] = True
+    save_reminder(reminders)
+    await message.answer("✅ Напоминания включены! Каждый день в 8:00 вы будете получать прогноз погоды.")
+
+@router.message(F.text.lower() == "отключить напоминание")
+async def disable_reminder(message: types.Message):
+    """
+    Обработчик для кнопки "Отключить напоминание".
+    Отключает напоминания для пользователя.
+    """
+    user_id = message.from_user.id
+    reminders = load_reminders()
+    if str(user_id) in reminders:
+        del reminders[str(user_id)]
+        save_reminder(reminders)
+        await message.answer("❌ Напоминания отключены.")
+    else:
+        await message.answer("⚠️ Напоминания уже отключены.")
 
 @router.message(F.text.lower() == "изменить город")
 async def change_city(message: types.Message):
