@@ -28,10 +28,10 @@ async def cmd_start(message: types.Message):
     Если город не сохранён, просит ввести название города,
     иначе предлагает выбрать действие в модуле "Погода".
     """
-    user_id = message.from_user.id
+    user_id = str(message.from_user.id)
     cities = load_cities()
 
-    if str(user_id) not in cities:
+    if user_id not in cities:
         await message.answer(
             "🌤️ Привет! Введите название вашего города:",
             reply_markup=types.ReplyKeyboardRemove()
@@ -51,14 +51,14 @@ async def my_city_weather(message: types.Message):
     Обработчик для кнопки "Мой город".
     Выводит текущую погоду для сохранённого пользователем города и прогноз на завтра.
     """
-    user_id = message.from_user.id
+    user_id = str(message.from_user.id)
     cities = load_cities()
 
-    if str(user_id) not in cities:
+    if user_id not in cities:
         await message.answer("❌ Город не задан. Пожалуйста, введите название города.")
         return
 
-    city = cities[str(user_id)]
+    city = cities[user_id]
     logger.info(f"Получен запрос погоды для города: '{city}'")
 
     try:
@@ -78,7 +78,6 @@ async def my_city_weather(message: types.Message):
                 current_data = await current_response.json()
                 forecast_data = await forecast_response.json()
 
-                # Проверка успешности запросов
                 if current_response.status != 200:
                     error_message = current_data.get("message", "Неизвестная ошибка")
                     await message.answer(f"❌ Ошибка: {error_message}")
@@ -89,7 +88,6 @@ async def my_city_weather(message: types.Message):
                     await message.answer(f"❌ Ошибка при получении прогноза: {error_message}")
                     return
 
-                # Формирование сообщения о текущей погоде
                 temp = current_data["main"]["temp"]
                 feels_like = current_data["main"]["feels_like"]
                 humidity = current_data["main"]["humidity"]
@@ -111,7 +109,6 @@ async def my_city_weather(message: types.Message):
                     f"☁️ Состояние: {description}"
                 )
 
-                # Формирование сообщения о прогнозе на завтра
                 tomorrow_data = None
                 today = datetime.now().date()
                 for forecast in forecast_data["list"]:
@@ -156,7 +153,7 @@ async def save_city_handler(message: types.Message):
     """
     Сохраняет введённый пользователем город в JSON файл.
     """
-    user_id = message.from_user.id
+    user_id = str(message.from_user.id)
     city = message.text.strip()
 
     if not city:
@@ -165,8 +162,10 @@ async def save_city_handler(message: types.Message):
 
     try:
         save_city(user_id=user_id, city=city)
-        await message.answer(f"✅ Ваш город был успешно изменён на {hbold(city)}.",
-                             reply_markup=types.ReplyKeyboardMarkup(weather_kb, resize_keyboard=True))
+        await message.answer(
+            f"✅ Ваш город был успешно изменён на {hbold(city)}.",
+            reply_markup=types.ReplyKeyboardMarkup(weather_kb, resize_keyboard=True)
+        )
     except Exception as e:
         logger.error(f"Ошибка при изменении города: {e}")
         await message.answer("❌ Не удалось сохранить новый город. Попробуйте позже.")
@@ -176,9 +175,9 @@ async def enable_reminder(message: types.Message):
     """
     Включает утренние напоминания.
     """
-    user_id = message.from_user.id
+    user_id = str(message.from_user.id)
     reminders = load_reminders()
-    reminders[str(user_id)] = True
+    reminders[user_id] = True
     save_reminder(reminders)
     await message.answer("✅ Утренние напоминания включены!")
 
@@ -187,10 +186,10 @@ async def disable_reminder(message: types.Message):
     """
     Отключает напоминания.
     """
-    user_id = message.from_user.id
+    user_id = str(message.from_user.id)
     reminders = load_reminders()
-    if str(user_id) in reminders:
-        del reminders[str(user_id)]
+    if user_id in reminders:
+        del reminders[user_id]
         save_reminder(reminders)
         await message.answer("❌ Напоминания отключены.")
     else:

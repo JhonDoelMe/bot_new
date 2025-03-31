@@ -58,9 +58,13 @@ def load_cities() -> dict:
 def save_city(user_id: str, city: str) -> None:
     """
     Сохраняет город для указанного пользователя в файл JSON.
+    При изменении города данные перезаписываются.
     """
     cities = load_cities()  # Загружаем текущие данные о городах
-    cities[user_id] = city.strip()  # Обновляем или добавляем новый город
+
+    # Перезаписываем город для указанного пользователя
+    cities[user_id] = city.strip()
+
     try:
         with open(CITIES_FILE, "w", encoding="utf-8") as f:
             json.dump(cities, f, ensure_ascii=False)
