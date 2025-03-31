@@ -14,7 +14,6 @@ def load_cities() -> Dict[str, str]:
     Если файла не существует или содержит некорректный JSON, возвращает пустой словарь.
     """
     if not os.path.exists(CITIES_FILE):
-        # Создание файла с пустым словарём
         try:
             with open(CITIES_FILE, "w", encoding="utf-8") as f:
                 json.dump({}, f, ensure_ascii=False)
@@ -52,7 +51,6 @@ def get_wind_direction(degrees: float) -> str:
     Определяет направление ветра по углу в градусах.
     Нормализует угол для корректной обработки отрицательных значений и значений больше 360.
     """
-    # Нормализация градусов в диапазоне 0-360
     degrees = degrees % 360
 
     if 337.5 <= degrees < 360 or 0 <= degrees < 22.5:

@@ -43,45 +43,11 @@ async def cmd_start(message: types.Message):
             )
         )
 
-@router.message(F.text)
-async def process_city_input(message: types.Message):
-    """
-    Обрабатывает ввод города пользователем.
-    Перед проверкой, если текст совпадает с командами, он игнорируется,
-    так как данные случаи обрабатываются другими хендлерами.
-    Выполняется запрос к OpenWeatherMap для проверки введённого города.
-    В случае успеха город сохраняется, иначе отправляется сообщение об ошибке.
-    """
-    user_id = message.from_user.id
-    city = message.text.strip()
-
-    # Если пользователь вводит команды, их обработкой займутся соответствующие обработчики
-    if city.lower() in ["мой город", "изменить город"]:
-        return
-
-    async with aiohttp.ClientSession() as session:
-        url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
-        async with session.get(url, timeout=10) as response:
-            data = await response.json()
-            if response.status != 200:
-                error_message = data.get("message", "Неизвестная ошибка")
-                await message.answer(f"❌ Ошибка: {error_message}")
-                return
-
-    save_city(user_id, city)
-    await message.answer(
-        f"✅ Город '{city}' успешно сохранён!",
-        reply_markup=types.ReplyKeyboardMarkup(
-            keyboard=main_kb,
-            resize_keyboard=True
-        )
-    )
-
 @router.message(F.text.lower() == "мой город")
 async def my_city_weather(message: types.Message):
     """
+    Обработчик для кнопки "Мой город".
     Выводит текущую погоду для сохранённого пользователем города.
-    При ошибке запроса к API или отсутствующих данных отправляет сообщение об ошибке.
     """
     user_id = message.from_user.id
     cities = load_cities()
@@ -95,7 +61,10 @@ async def my_city_weather(message: types.Message):
 
     try:
         async with aiohttp.ClientSession() as session:
-            url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+            url = (
+                f"https://api.openweathermap.org/data/2.5/weather?"
+                f"q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+            )
             async with session.get(url, timeout=10) as response:
                 data = await response.json()
                 if response.status != 200:
@@ -135,10 +104,46 @@ async def my_city_weather(message: types.Message):
 @router.message(F.text.lower() == "изменить город")
 async def change_city(message: types.Message):
     """
-    Обрабатывает команду для изменения названия города.
+    Обработчик для кнопки "Изменить город".
     Запрашивает у пользователя новое название города, сбрасывая текущую клавиатуру.
     """
     await message.answer(
         "Введите новое название города:",
         reply_markup=types.ReplyKeyboardRemove()
+    )
+
+@router.message(F.text)  # Обработчик для ввода названия города (если текст не совпадает с командами)
+async def process_city_input(message: types.Message):
+    """
+    Обрабатывает ввод названия города.
+    Если текст не совпадает с уже обработанными командами, проверяет корректность города.
+    Выполняется запрос к OpenWeatherMap для проверки введённого города, после чего город сохраняется.
+    """
+    user_id = message.from_user.id
+    city = message.text.strip()
+
+    # Данный блок на всякий случай оставляем,
+    # но при корректном порядке обработчиков он не должен срабатывать.
+    if city.lower() in ["мой город", "изменить город"]:
+        return
+
+    async with aiohttp.ClientSession() as session:
+        url = (
+            f"https://api.openweathermap.org/data/2.5/weather?"
+            f"q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+        )
+        async with session.get(url, timeout=10) as response:
+            data = await response.json()
+            if response.status != 200:
+                error_message = data.get("message", "Неизвестная ошибка")
+                await message.answer(f"❌ Ошибка: {error_message}")
+                return
+
+    save_city(user_id, city)
+    await message.answer(
+        f"✅ Город '{city}' успешно сохранён!",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=main_kb,
+            resize_keyboard=True
+        )
     )
