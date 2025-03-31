@@ -112,34 +112,35 @@ async def get_weather(message: types.Message):
                 )
 
         # Прогноз на завтра
-        forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
-        async with session.get(forecast_url, timeout=10) as forecast_response:
-            if forecast_response.status != 200:
-                await message.answer("❌ Не удалось получить прогноз погоды.")
-                return
+        async with aiohttp.ClientSession() as session:
+            forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+            async with session.get(forecast_url, timeout=10) as forecast_response:
+                if forecast_response.status != 200:
+                    await message.answer("❌ Не удалось получить прогноз погоды.")
+                    return
 
-            forecast_data = await forecast_response.json()
-            tomorrow = datetime.now() + timedelta(days=1)
-            tomorrow_date = tomorrow.strftime("%Y-%m-%d")
+                forecast_data = await forecast_response.json()
+                tomorrow = datetime.now() + timedelta(days=1)
+                tomorrow_date = tomorrow.strftime("%Y-%m-%d")
 
-            # Ищем прогноз на завтра
-            for item in forecast_data["list"]:
-                forecast_time = datetime.strptime(item["dt_txt"], "%Y-%m-%d %H:%M:%S")
-                if forecast_time.date() == tomorrow.date():
-                    temp_tomorrow = item["main"]["temp"]
-                    feels_like_tomorrow = item["main"]["feels_like"]
-                    description_tomorrow = item["weather"][0]["description"].capitalize()
-                    break
-            else:
-                await message.answer("❌ Прогноз на завтра недоступен.")
-                return
+                # Ищем прогноз на завтра
+                for item in forecast_data["list"]:
+                    forecast_time = datetime.strptime(item["dt_txt"], "%Y-%m-%d %H:%M:%S")
+                    if forecast_time.date() == tomorrow.date():
+                        temp_tomorrow = item["main"]["temp"]
+                        feels_like_tomorrow = item["main"]["feels_like"]
+                        description_tomorrow = item["weather"][0]["description"].capitalize()
+                        break
+                else:
+                    await message.answer("❌ Прогноз на завтра недоступен.")
+                    return
 
-            # Отправляем прогноз на завтра
-            await message.answer(
-                f" прогноз на завтра ({tomorrow_date}):\n\n"
-                f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
-                f"☁️ Состояние: {description_tomorrow}"
-            )
+                # Отправляем прогноз на завтра
+                await message.answer(
+                    f" прогноз на завтра ({tomorrow_date}):\n\n"
+                    f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
+                    f"☁️ Состояние: {description_tomorrow}"
+                )
 
     except asyncio.TimeoutError:
         await message.answer("❌ Превышено время ожидания ответа от сервера.")
