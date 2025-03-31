@@ -18,7 +18,7 @@ async def get_currency_rates(message: types.Message):
     Получает курсы валют на текущую дату из API НБУ и отправляет пользователю.
     """
     try:
-        today = datetime.now().strftime("%Y%m%d")
+        today = datetime.now().strftime("%Y%m%d")  # Формат текущей даты для запроса API НБУ
         url = f"https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?date={today}&json"
 
         async with aiohttp.ClientSession() as session:
@@ -27,7 +27,13 @@ async def get_currency_rates(message: types.Message):
                     await message.answer("❌ Ошибка при получении данных от НБУ.")
                     return
 
+                # Получаем и обрабатываем данные JSON
                 data = await response.json()
+                if not data:
+                    await message.answer("⚠️ Не удалось получить информацию о курсах валют.")
+                    return
+
+                # Формируем список курсов валют для отображения
                 rates = "\n".join([
                     f"{item['txt']} ({item['cc']}): {item['rate']} грн за {item['unit']} единиц"
                     for item in data
