@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
+from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
 # Загрузка конфигурации
@@ -12,8 +13,11 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
-# Инициализация бота
-bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+# Инициализация бота с новым синтаксисом
+bot = Bot(
+    token=BOT_TOKEN,
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 dp = Dispatcher()
 
 # Клавиатура
