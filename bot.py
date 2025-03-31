@@ -5,9 +5,10 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
-from aiogram.utils.rate_limit import rate_limit
 from dotenv import load_dotenv
 import aiohttp
+from aiogram import BaseMiddleware
+from datetime import datetime, timedelta
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,30 @@ WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 
 if not BOT_TOKEN or not WEATHER_API_KEY:
     raise ValueError("Необходимо указать BOT_TOKEN и WEATHER_API_KEY в .env файле.")
+
+# Middleware для ограничения частоты запросов
+class ThrottlingMiddleware(BaseMiddleware):
+    def __init__(self, limit: float = 5.0):
+        """
+        :param limit: Минимальное время (в секундах) между запросами
+        """
+        self.limit = limit
+        self.users = {}
+
+    async def __call__(self, handler, event: types.Message, data):
+        user_id = event.from_user.id
+        current_time = datetime.now()
+
+        # Проверяем, когда пользователь последний раз отправлял запрос
+        if user_id in self.users:
+            last_time = self.users[user_id]
+            if current_time - last_time < timedelta(seconds=self.limit):
+                await event.answer("⏳ Пожалуйста, подождите перед следующим запросом.")
+                return
+
+        # Обновляем время последнего запроса
+        self.users[user_id] = current_time
+        return await handler(event, data)
 
 # Инициализация бота
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
@@ -46,7 +71,6 @@ async def cmd_start(message: types.Message):
     )
 
 # Обработчик погоды
-@rate_limit(limit=5, key="weather")
 @dp.message()
 async def get_weather(message: types.Message):
     city = message.text.strip()
@@ -87,6 +111,10 @@ async def get_weather(message: types.Message):
 
 # Запуск бота
 async def main():
+    # Добавляем middleware
+    throttling_middleware = ThrottlingMiddleware(limit=5.0)  # Ограничение: 1 запрос в 5 секунд
+    dp.message.middleware(throttling_middleware)
+
     logger.info("Бот запущен.")
     await dp.start_polling(bot)
 
