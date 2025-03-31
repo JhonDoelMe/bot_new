@@ -1,15 +1,14 @@
 import os
 import logging
 import asyncio
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
 from dotenv import load_dotenv
 import aiohttp
-from aiogram import BaseMiddleware
-from datetime import datetime, timedelta
-from aiogram.client.default import DefaultBotProperties  # Новый импорт для DefaultBotProperties
+from aiogram.client.default import DefaultBotProperties
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -23,34 +22,10 @@ WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 if not BOT_TOKEN or not WEATHER_API_KEY:
     raise ValueError("Необходимо указать BOT_TOKEN и WEATHER_API_KEY в .env файле.")
 
-# Middleware для ограничения частоты запросов
-class ThrottlingMiddleware(BaseMiddleware):
-    def __init__(self, limit: float = 5.0):
-        """
-        :param limit: Минимальное время (в секундах) между запросами
-        """
-        self.limit = limit
-        self.users = {}
-
-    async def __call__(self, handler, event: types.Message, data):
-        user_id = event.from_user.id
-        current_time = datetime.now()
-
-        # Проверяем, когда пользователь последний раз отправлял запрос
-        if user_id in self.users:
-            last_time = self.users[user_id]
-            if current_time - last_time < timedelta(seconds=self.limit):
-                await event.answer("⏳ Пожалуйста, подождите перед следующим запросом.")
-                return
-
-        # Обновляем время последнего запроса
-        self.users[user_id] = current_time
-        return await handler(event, data)
-
 # Инициализация бота
 bot = Bot(
     token=BOT_TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)  # Устанавливаем parse_mode через DefaultBotProperties
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
 )
 dp = Dispatcher()
 
@@ -60,6 +35,25 @@ weather_kb = [
     [types.KeyboardButton(text="Санкт-Петербург")],
     [types.KeyboardButton(text="Киев")]
 ]
+
+# Функция для определения направления ветра
+def get_wind_direction(degrees):
+    if 337.5 <= degrees <= 360 or 0 <= degrees < 22.5:
+        return "⬆️ Север"
+    elif 22.5 <= degrees < 67.5:
+        return "↗️ Северо-восток"
+    elif 67.5 <= degrees < 112.5:
+        return "➡️ Восток"
+    elif 112.5 <= degrees < 157.5:
+        return "↘️ Юго-восток"
+    elif 157.5 <= degrees < 202.5:
+        return "⬇️ Юг"
+    elif 202.5 <= degrees < 247.5:
+        return "↙️ Юго-запад"
+    elif 247.5 <= degrees < 292.5:
+        return "⬅️ Запад"
+    elif 292.5 <= degrees < 337.5:
+        return "↖️ Северо-запад"
 
 # Команда /start
 @dp.message(Command("start"))
@@ -83,6 +77,7 @@ async def get_weather(message: types.Message):
         return
 
     try:
+        # Текущая погода
         async with aiohttp.ClientSession() as session:
             url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
             async with session.get(url, timeout=10) as response:
@@ -97,16 +92,55 @@ async def get_weather(message: types.Message):
                 temp = data["main"]["temp"]
                 feels_like = data["main"]["feels_like"]
                 humidity = data["main"]["humidity"]
-                wind = data["wind"]["speed"]
+                wind_speed = data["wind"]["speed"]
+                wind_deg = data["wind"].get("deg", 0)
                 description = data["weather"][0]["description"].capitalize()
+                sunrise = datetime.fromtimestamp(data["sys"]["sunrise"]).strftime("%H:%M")
+                sunset = datetime.fromtimestamp(data["sys"]["sunset"]).strftime("%H:%M")
 
+                wind_direction = get_wind_direction(wind_deg)
+
+                # Отправляем текущую погоду
                 await message.answer(
                     f"🌆 Погода в {hbold(city)}:\n\n"
                     f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
                     f"💧 Влажность: {humidity}%\n"
-                    f"🌬️ Ветер: {wind} м/с\n"
+                    f"🌬️ Ветер: {wind_direction} {wind_speed} м/с\n"
+                    f"🌅 Восход: 🌅 {sunrise}\n"
+                    f"🌇 Закат: 🌇 {sunset}\n"
                     f"☁️ Состояние: {description}"
                 )
+
+        # Прогноз на завтра
+        forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+        async with session.get(forecast_url, timeout=10) as forecast_response:
+            if forecast_response.status != 200:
+                await message.answer("❌ Не удалось получить прогноз погоды.")
+                return
+
+            forecast_data = await forecast_response.json()
+            tomorrow = datetime.now() + timedelta(days=1)
+            tomorrow_date = tomorrow.strftime("%Y-%m-%d")
+
+            # Ищем прогноз на завтра
+            for item in forecast_data["list"]:
+                forecast_time = item["dt_txt"].split()[0]
+                if forecast_time == tomorrow_date:
+                    temp_tomorrow = item["main"]["temp"]
+                    feels_like_tomorrow = item["main"]["feels_like"]
+                    description_tomorrow = item["weather"][0]["description"].capitalize()
+                    break
+            else:
+                await message.answer("❌ Прогноз на завтра недоступен.")
+                return
+
+            # Отправляем прогноз на завтра
+            await message.answer(
+                f" прогноз на завтра ({tomorrow_date}):\n\n"
+                f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
+                f"☁️ Состояние: {description_tomorrow}"
+            )
+
     except asyncio.TimeoutError:
         await message.answer("❌ Превышено время ожидания ответа от сервера.")
     except Exception as e:
@@ -115,10 +149,6 @@ async def get_weather(message: types.Message):
 
 # Запуск бота
 async def main():
-    # Добавляем middleware
-    throttling_middleware = ThrottlingMiddleware(limit=5.0)  # Ограничение: 1 запрос в 5 секунд
-    dp.message.middleware(throttling_middleware)
-
     logger.info("Бот запущен.")
     await dp.start_polling(bot)
 
