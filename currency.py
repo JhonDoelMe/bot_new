@@ -39,7 +39,8 @@ async def get_currency_rates(message: types.Message):
 
                 # Формируем сообщение с курсами валют
                 rates = "\n".join([
-                    f"💵 {item['txt']} ({item['cc']}): {item['rate']} грн за {item['unit']} единиц"
+                    f"💵 {item['txt']} ({item['cc']}): {item['rate']} грн"
+                    + (f" за {item['unit']} единиц" if 'unit' in item else "")
                     for item in data
                 ])
 
