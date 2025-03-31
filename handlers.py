@@ -41,10 +41,6 @@ async def process_city_input(message: types.Message):
     user_id = message.from_user.id
     city = message.text.strip()
 
-    if not city.isprintable():
-        await message.answer("❌ Название города содержит недопустимые символы.")
-        return
-
     # Проверяем, что город существует в API
     async with aiohttp.ClientSession() as session:
         url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
@@ -66,7 +62,7 @@ async def process_city_input(message: types.Message):
     )
 
 # Обработчик кнопки "Мой город"
-@router.message(F.text == "Мой город")
+@router.message(F.text.lower() == "мой город")  # Учитываем регистр символов
 async def my_city_weather(message: types.Message):
     user_id = message.from_user.id
     cities = load_cities()
@@ -117,7 +113,7 @@ async def my_city_weather(message: types.Message):
         await message.answer("❌ Не удалось получить данные. Проверьте название города.")
 
 # Обработчик кнопки "Изменить город"
-@router.message(F.text == "Изменить город")
+@router.message(F.text.lower() == "изменить город")  # Учитываем регистр символов
 async def change_city(message: types.Message):
     await message.answer(
         "Введите новое название города:",
