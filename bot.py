@@ -44,7 +44,7 @@ def load_cities():
 # Функция для записи данных в файл
 def save_city(user_id, city):
     cities = load_cities()
-    cities[str(user_id)] = city
+    cities[str(user_id)] = city  # Сохраняем город в исходном регистре
     with open(CITIES_FILE, "w", encoding="utf-8") as f:
         json.dump(cities, f, ensure_ascii=False)
 
@@ -97,7 +97,7 @@ async def cmd_start(message: types.Message):
 @dp.message(F.text)
 async def process_city_input(message: types.Message):
     user_id = message.from_user.id
-    city = message.text.strip().lower()  # Преобразуем в нижний регистр
+    city = message.text.strip()  # Не преобразуем в нижний регистр
 
     if not city.isprintable():
         await message.answer("❌ Название города содержит недопустимые символы.")
@@ -116,7 +116,7 @@ async def process_city_input(message: types.Message):
     # Сохраняем город
     save_city(user_id, city)
     await message.answer(
-        f"✅ Город '{city.capitalize()}' успешно сохранён!",
+        f"✅ Город '{city}' успешно сохранён!",
         reply_markup=types.ReplyKeyboardMarkup(
             keyboard=main_kb,
             resize_keyboard=True
@@ -160,7 +160,7 @@ async def my_city_weather(message: types.Message):
 
                 # Отправляем текущую погоду
                 await message.answer(
-                    f"🌆 Погода в {hbold(city.capitalize())}:\n\n"
+                    f"🌆 Погода в {hbold(city)}:\n\n"
                     f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
                     f"💧 Влажность: {humidity}%\n"
                     f"🌬️ Ветер: {wind_direction} {wind_speed} м/с\n"
