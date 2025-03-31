@@ -4,7 +4,7 @@ from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
 import aiohttp
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from config import WEATHER_API_KEY
 from utils import load_cities, save_city, get_wind_direction
@@ -47,7 +47,7 @@ async def cmd_start(message: types.Message):
 async def my_city_weather(message: types.Message):
     """
     Обработчик для кнопки "Мой город".
-    Выводит текущую погоду для сохранённого пользователем города.
+    Выводит текущую погоду для сохранённого пользователем города и прогноз на завтра.
     """
     user_id = message.from_user.id
     cities = load_cities()
@@ -61,31 +61,51 @@ async def my_city_weather(message: types.Message):
 
     try:
         async with aiohttp.ClientSession() as session:
-            url = (
+            # Запрос текущей погоды
+            current_weather_url = (
                 f"https://api.openweathermap.org/data/2.5/weather?"
                 f"q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
             )
-            async with session.get(url, timeout=10) as response:
-                data = await response.json()
-                if response.status != 200:
-                    error_message = data.get("message", "Неизвестная ошибка")
+
+            # Запрос прогноза на несколько дней (на завтра)
+            forecast_url = (
+                f"https://api.openweathermap.org/data/2.5/forecast?"
+                f"q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+            )
+
+            # Выполняем оба запроса параллельно
+            async with session.get(current_weather_url, timeout=10) as current_response, \
+                       session.get(forecast_url, timeout=10) as forecast_response:
+
+                current_data = await current_response.json()
+                forecast_data = await forecast_response.json()
+
+                # Проверка ответа для текущей погоды
+                if current_response.status != 200:
+                    error_message = current_data.get("message", "Неизвестная ошибка")
                     await message.answer(f"❌ Ошибка: {error_message}")
                     return
 
-                # Извлекаем необходимые данные
-                temp = data["main"]["temp"]
-                feels_like = data["main"]["feels_like"]
-                humidity = data["main"]["humidity"]
-                wind_speed = data["wind"]["speed"]
-                wind_deg = data["wind"].get("deg", 0)
-                description = data["weather"][0]["description"].capitalize()
-                sunrise = datetime.fromtimestamp(data["sys"]["sunrise"]).strftime("%H:%M")
-                sunset = datetime.fromtimestamp(data["sys"]["sunset"]).strftime("%H:%M")
+                # Проверка ответа для прогноза
+                if forecast_response.status != 200:
+                    error_message = forecast_data.get("message", "Неизвестная ошибка")
+                    await message.answer(f"❌ Ошибка при получении прогноза: {error_message}")
+                    return
+
+                # Формируем сообщение для текущей погоды
+                temp = current_data["main"]["temp"]
+                feels_like = current_data["main"]["feels_like"]
+                humidity = current_data["main"]["humidity"]
+                wind_speed = current_data["wind"]["speed"]
+                wind_deg = current_data["wind"].get("deg", 0)
+                description = current_data["weather"][0]["description"].capitalize()
+                sunrise = datetime.fromtimestamp(current_data["sys"]["sunrise"]).strftime("%H:%M")
+                sunset = datetime.fromtimestamp(current_data["sys"]["sunset"]).strftime("%H:%M")
 
                 wind_direction = get_wind_direction(wind_deg)
 
                 await message.answer(
-                    f"🌆 Погода в {hbold(city)}:\n\n"
+                    f"🌆 Погода в {hbold(city)} сегодня:\n\n"
                     f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
                     f"💧 Влажность: {humidity}%\n"
                     f"🌬️ Ветер: {wind_direction} {wind_speed} м/с\n"
@@ -93,6 +113,37 @@ async def my_city_weather(message: types.Message):
                     f"🌇 Закат: {sunset}\n"
                     f"☁️ Состояние: {description}"
                 )
+
+                # Формируем сообщение для прогноза на завтра
+                tomorrow_data = None
+                today = datetime.now().date()
+
+                # Ищем данные для завтрашнего дня (только по времени 12:00)
+                for forecast in forecast_data["list"]:
+                    forecast_time = datetime.fromtimestamp(forecast["dt"])
+                    if forecast_time.date() == today + timedelta(days=1) and forecast_time.hour == 12:
+                        tomorrow_data = forecast
+                        break
+
+                if tomorrow_data:
+                    temp_tomorrow = tomorrow_data["main"]["temp"]
+                    feels_like_tomorrow = tomorrow_data["main"]["feels_like"]
+                    humidity_tomorrow = tomorrow_data["main"]["humidity"]
+                    wind_speed_tomorrow = tomorrow_data["wind"]["speed"]
+                    wind_deg_tomorrow = tomorrow_data["wind"].get("deg", 0)
+                    description_tomorrow = tomorrow_data["weather"][0]["description"].capitalize()
+
+                    wind_direction_tomorrow = get_wind_direction(wind_deg_tomorrow)
+
+                    await message.answer(
+                        f"🌆 Погода в {hbold(city)} завтра (время: 12:00):\n\n"
+                        f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
+                        f"💧 Влажность: {humidity_tomorrow}%\n"
+                        f"🌬️ Ветер: {wind_direction_tomorrow} {wind_speed_tomorrow} м/с\n"
+                        f"☁️ Состояние: {description_tomorrow}"
+                    )
+                else:
+                    await message.answer("⚠️ Не удалось получить прогноз на завтра.")
 
     except aiohttp.ClientError as e:
         logger.error(f"Ошибка при запросе данных: {e}")
@@ -110,40 +161,4 @@ async def change_city(message: types.Message):
     await message.answer(
         "Введите новое название города:",
         reply_markup=types.ReplyKeyboardRemove()
-    )
-
-@router.message(F.text)  # Обработчик для ввода названия города (если текст не совпадает с командами)
-async def process_city_input(message: types.Message):
-    """
-    Обрабатывает ввод названия города.
-    Если текст не совпадает с уже обработанными командами, проверяет корректность города.
-    Выполняется запрос к OpenWeatherMap для проверки введённого города, после чего город сохраняется.
-    """
-    user_id = message.from_user.id
-    city = message.text.strip()
-
-    # Данный блок на всякий случай оставляем,
-    # но при корректном порядке обработчиков он не должен срабатывать.
-    if city.lower() in ["мой город", "изменить город"]:
-        return
-
-    async with aiohttp.ClientSession() as session:
-        url = (
-            f"https://api.openweathermap.org/data/2.5/weather?"
-            f"q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
-        )
-        async with session.get(url, timeout=10) as response:
-            data = await response.json()
-            if response.status != 200:
-                error_message = data.get("message", "Неизвестная ошибка")
-                await message.answer(f"❌ Ошибка: {error_message}")
-                return
-
-    save_city(user_id, city)
-    await message.answer(
-        f"✅ Город '{city}' успешно сохранён!",
-        reply_markup=types.ReplyKeyboardMarkup(
-            keyboard=main_kb,
-            resize_keyboard=True
-        )
     )
