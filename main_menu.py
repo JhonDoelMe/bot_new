@@ -22,3 +22,17 @@ async def back_to_main_menu(message: types.Message):
             resize_keyboard=True
         )
     )
+
+@router.message(commands=["start"])
+async def start_command(message: types.Message):
+    """
+    Обработчик команды /start.
+    Показывает приветственное сообщение и основное меню.
+    """
+    await message.answer(
+        "👋 Добро пожаловать! Я ваш помощник. Выберите, чем я могу вам помочь:",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=main_menu_kb,
+            resize_keyboard=True
+        )
+    )
