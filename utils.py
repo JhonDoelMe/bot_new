@@ -5,16 +5,16 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Файлы для сохранения данных
-REMINDERS_FILE = "reminders.json"  # Файл для напоминаний
-CITIES_FILE = "cities.json"       # Файл для городов
+REMINDERS_FILE = "reminders.json"  # Файл для хранения напоминаний
+CITIES_FILE = "cities.json"       # Файл для хранения городов
 
 def load_reminders() -> dict:
     """
     Загружает состояния напоминаний из файла JSON.
     Возвращает словарь, где ключ — это ID пользователя, а значение — состояние.
+    Если файл отсутствует, создаёт его с пустыми данными.
     """
     if not os.path.exists(REMINDERS_FILE):
-        # Создаём пустой файл, если он не существует
         with open(REMINDERS_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False)
         return {}
@@ -22,7 +22,6 @@ def load_reminders() -> dict:
         with open(REMINDERS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
-        # Логируем ошибку и возвращаем пустой словарь
         logger.error(f"Ошибка при чтении файла {REMINDERS_FILE}: {e}")
         return {}
 
@@ -41,9 +40,9 @@ def load_cities() -> dict:
     """
     Загружает данные о городах из файла JSON.
     Возвращает словарь, где ключ — ID пользователя, а значение — город.
+    Если файл отсутствует, создаёт его с пустыми данными.
     """
     if not os.path.exists(CITIES_FILE):
-        # Создаём пустой файл, если он не существует
         with open(CITIES_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False)
         return {}
@@ -51,7 +50,6 @@ def load_cities() -> dict:
         with open(CITIES_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
-        # Логируем ошибку и возвращаем пустой словарь
         logger.error(f"Ошибка при чтении файла {CITIES_FILE}: {e}")
         return {}
 
@@ -61,9 +59,7 @@ def save_city(user_id: str, city: str) -> None:
     При изменении города данные перезаписываются.
     """
     cities = load_cities()  # Загружаем текущие данные о городах
-
-    # Перезаписываем город для указанного пользователя
-    cities[user_id] = city.strip()
+    cities[user_id] = city.strip()  # Перезаписываем город для указанного пользователя
 
     try:
         with open(CITIES_FILE, "w", encoding="utf-8") as f:

@@ -166,8 +166,11 @@ async def save_city_handler(message: types.Message):
             f"✅ Ваш город был успешно изменён на {hbold(city)}.",
             reply_markup=types.ReplyKeyboardMarkup(weather_kb, resize_keyboard=True)
         )
+    except TypeError as e:
+        logger.error(f"Ошибка типов в функции save_city: {e}")
+        await message.answer("❌ Произошла ошибка при изменении города. Проверьте данные.")
     except Exception as e:
-        logger.error(f"Ошибка при изменении города: {e}")
+        logger.error(f"Неизвестная ошибка при изменении города: {e}")
         await message.answer("❌ Не удалось сохранить новый город. Попробуйте позже.")
 
 @router.message(F.text.lower() == "напоминать утром")
