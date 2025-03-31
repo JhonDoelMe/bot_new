@@ -1,5 +1,5 @@
 from aiogram import Router, types
-from aiogram.filters import Command
+from aiogram.filters import Command, Text
 
 router = Router()
 
@@ -24,7 +24,7 @@ async def start_command(message: types.Message):
         )
     )
 
-@router.message(types.Text("Назад в меню"))
+@router.message(Text(text="Назад в меню"))
 async def back_to_main_menu(message: types.Message):
     """
     Обработчик для кнопки "Назад в меню".
