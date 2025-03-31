@@ -13,6 +13,14 @@ def load_reminders() -> dict:
     Возвращает словарь, где ключ — это ID пользователя, а значение — состояние.
     """
     if not os.path.exists(REMINDERS_FILE):
+        with open(REMINDERS_FILE, "w", encoding="utf-8") as file:
+            json.dump({}, file, ensure_ascii=False, indent=4)
+            def load_reminders() -> dict:
+    """
+    Загружает состояния напоминаний из файла JSON.
+    Возвращает словарь, где ключ — это ID пользователя, а значение — состояние.
+    """
+    if not os.path.exists(REMINDERS_FILE):
         with open(REMINDERS_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False)
         return {}

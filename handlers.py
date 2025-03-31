@@ -59,8 +59,9 @@ async def my_city_weather(message: types.Message):
         return
 
     city = cities[str(user_id)]
+    logger.info(f"Получен запрос погоды для города: '{city}'")
+
     try:
-        # Запросы к API OpenWeather
         async with aiohttp.ClientSession() as session:
             current_weather_url = (
                 f"https://api.openweathermap.org/data/2.5/weather?"
@@ -70,39 +71,78 @@ async def my_city_weather(message: types.Message):
                 f"https://api.openweathermap.org/data/2.5/forecast?"
                 f"q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
             )
-            async with session.get(current_weather_url) as response_current, \
-                       session.get(forecast_url) as response_forecast:
 
-                current_data = await response_current.json()
-                forecast_data = await response_forecast.json()
+            async with session.get(current_weather_url, timeout=10) as current_response, \
+                       session.get(forecast_url, timeout=10) as forecast_response:
 
-                if response_current.status != 200 or response_forecast.status != 200:
-                    await message.answer("❌ Ошибка при запросе погоды.")
+                current_data = await current_response.json()
+                forecast_data = await forecast_response.json()
+
+                # Проверка успешности запросов
+                if current_response.status != 200:
+                    error_message = current_data.get("message", "Неизвестная ошибка")
+                    await message.answer(f"❌ Ошибка: {error_message}")
                     return
 
-                # Формируем сообщение о текущей погоде
-                temp = current_data["main"]["temp"]
-                description = current_data["weather"][0]["description"].capitalize()
-                await message.answer(f"🌡️ Температура в {city}: {temp}°C\n☁️ {description}")
+                if forecast_response.status != 200:
+                    error_message = forecast_data.get("message", "Неизвестная ошибка")
+                    await message.answer(f"❌ Ошибка при получении прогноза: {error_message}")
+                    return
 
-                # Прогноз на завтра
+                # Формирование сообщения о текущей погоде
+                temp = current_data["main"]["temp"]
+                feels_like = current_data["main"]["feels_like"]
+                humidity = current_data["main"]["humidity"]
+                wind_speed = current_data["wind"]["speed"]
+                wind_deg = current_data["wind"].get("deg", 0)
+                description = current_data["weather"][0]["description"].capitalize()
+                sunrise = datetime.fromtimestamp(current_data["sys"]["sunrise"]).strftime("%H:%M")
+                sunset = datetime.fromtimestamp(current_data["sys"]["sunset"]).strftime("%H:%M")
+
+                wind_direction = get_wind_direction(wind_deg)
+
+                await message.answer(
+                    f"🌆 Погода в {hbold(city)} сегодня:\n\n"
+                    f"🌡️ Температура: {temp}°C (ощущается как {feels_like}°C)\n"
+                    f"💧 Влажность: {humidity}%\n"
+                    f"🌬️ Ветер: {wind_direction} {wind_speed} м/с\n"
+                    f"🌅 Восход: {sunrise}\n"
+                    f"🌇 Закат: {sunset}\n"
+                    f"☁️ Состояние: {description}"
+                )
+
+                # Формирование сообщения о прогнозе на завтра
                 tomorrow_data = None
                 today = datetime.now().date()
-                for item in forecast_data["list"]:
-                    forecast_time = datetime.fromtimestamp(item["dt"])
+                for forecast in forecast_data["list"]:
+                    forecast_time = datetime.fromtimestamp(forecast["dt"])
                     if forecast_time.date() == today + timedelta(days=1) and forecast_time.hour == 12:
-                        tomorrow_data = item
+                        tomorrow_data = forecast
                         break
 
                 if tomorrow_data:
                     temp_tomorrow = tomorrow_data["main"]["temp"]
+                    feels_like_tomorrow = tomorrow_data["main"]["feels_like"]
+                    humidity_tomorrow = tomorrow_data["main"]["humidity"]
+                    wind_speed_tomorrow = tomorrow_data["wind"]["speed"]
+                    wind_deg_tomorrow = tomorrow_data["wind"].get("deg", 0)
                     description_tomorrow = tomorrow_data["weather"][0]["description"].capitalize()
-                    await message.answer(f"🌆 Прогноз на завтра:\n🌡️ {temp_tomorrow}°C\n☁️ {description_tomorrow}")
+
+                    wind_direction_tomorrow = get_wind_direction(wind_deg_tomorrow)
+
+                    await message.answer(
+                        f"🌆 Погода в {hbold(city)} завтра (время: 12:00):\n\n"
+                        f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
+                        f"💧 Влажность: {humidity_tomorrow}%\n"
+                        f"🌬️ Ветер: {wind_direction_tomorrow} {wind_speed_tomorrow} м/с\n"
+                        f"☁️ Состояние: {description_tomorrow}"
+                    )
                 else:
                     await message.answer("⚠️ Прогноз на завтра недоступен.")
+
     except Exception as e:
-        logger.error(f"Ошибка при запросе погоды: {e}")
-        await message.answer("❌ Не удалось получить данные.")
+        logger.error(f"Ошибка при запросе данных: {e}")
+        await message.answer("❌ Не удалось получить данные. Проверьте название города.")
 
 @router.message(F.text.lower() == "изменить город")
 async def change_city_request(message: types.Message):
@@ -124,8 +164,8 @@ async def save_city_handler(message: types.Message):
         return
 
     try:
-        save_city(user_id, city)
-        await message.answer(f"✅ Ваш город был успешно изменён на {city}.",
+        save_city(user_id=user_id, city=city)
+        await message.answer(f"✅ Ваш город был успешно изменён на {hbold(city)}.",
                              reply_markup=types.ReplyKeyboardMarkup(weather_kb, resize_keyboard=True))
     except Exception as e:
         logger.error(f"Ошибка при изменении города: {e}")
