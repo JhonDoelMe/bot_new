@@ -18,24 +18,28 @@ async def get_currency_rates(message: types.Message):
     Получает курсы валют на текущую дату из API НБУ и отправляет пользователю.
     """
     try:
-        today = datetime.now().strftime("%Y%m%d")  # Формат текущей даты для запроса API НБУ
+        # Форматируем текущую дату для запроса
+        today = datetime.now().strftime("%Y%m%d")
         url = f"https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?date={today}&json"
 
+        # Выполняем запрос к API НБУ
         async with aiohttp.ClientSession() as session:
             async with session.get(url, timeout=10) as response:
                 if response.status != 200:
+                    logger.error(f"API НБУ вернул ошибку: {response.status}")
                     await message.answer("❌ Ошибка при получении данных от НБУ.")
                     return
 
-                # Получаем и обрабатываем данные JSON
+                # Обрабатываем ответ JSON
                 data = await response.json()
                 if not data:
+                    logger.warning("Ответ API НБУ пустой.")
                     await message.answer("⚠️ Не удалось получить информацию о курсах валют.")
                     return
 
-                # Формируем список курсов валют для отображения
+                # Формируем сообщение с курсами валют
                 rates = "\n".join([
-                    f"{item['txt']} ({item['cc']}): {item['rate']} грн за {item['unit']} единиц"
+                    f"💵 {item['txt']} ({item['cc']}): {item['rate']} грн за {item['unit']} единиц"
                     for item in data
                 ])
 
@@ -56,7 +60,7 @@ async def back_to_main_menu(message: types.Message):
     Обработчик для кнопки "Назад в меню".
     Возвращает пользователя в главное меню.
     """
-    from main_menu import main_menu_kb  # Импорт клавиатуры основного меню
+    from main_menu import main_menu_kb  # Импортируем клавиатуру основного меню
     await message.answer(
         "📋 Вы в главном меню. Выберите действие:",
         reply_markup=types.ReplyKeyboardMarkup(
