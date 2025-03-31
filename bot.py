@@ -3,8 +3,8 @@ import json
 import logging
 import asyncio
 from datetime import datetime, timedelta
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, Text
+from aiogram import Bot, Dispatcher, types, F  # Импортируем F для фильтров
+from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
 from dotenv import load_dotenv
@@ -94,7 +94,7 @@ async def cmd_start(message: types.Message):
         )
 
 # Обработчик ввода города
-@dp.message(Text)
+@dp.message(F.text)  # Используем F.text вместо Text
 async def process_city_input(message: types.Message):
     user_id = message.from_user.id
     city = message.text.strip()
@@ -124,7 +124,7 @@ async def process_city_input(message: types.Message):
     )
 
 # Обработчик кнопки "Мой город"
-@dp.message(Text("Мой город"))
+@dp.message(F.text == "Мой город")  # Используем F.text для сравнения текста
 async def my_city_weather(message: types.Message):
     user_id = message.from_user.id
     cities = load_cities()
@@ -174,7 +174,7 @@ async def my_city_weather(message: types.Message):
         await message.answer("❌ Не удалось получить данные. Проверьте название города.")
 
 # Обработчик кнопки "Изменить город"
-@dp.message(Text("Изменить город"))
+@dp.message(F.text == "Изменить город")  # Используем F.text для сравнения текста
 async def change_city(message: types.Message):
     await message.answer(
         "Введите новое название города:",
