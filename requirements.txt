@@ -1,4 +1,5 @@
+# bot_new/requirements.txt
 aiogram>=3.7.0
 python-dotenv>=1.0.0
-requests>=2.31.0
 aiohttp>=3.8.0
+# requests удален, так как не используется
