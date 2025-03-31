@@ -129,16 +129,23 @@ async def get_weather(message: types.Message):
                     if forecast_time.date() == tomorrow.date():
                         temp_tomorrow = item["main"]["temp"]
                         feels_like_tomorrow = item["main"]["feels_like"]
+                        humidity_tomorrow = item["main"]["humidity"]
+                        wind_speed_tomorrow = item["wind"]["speed"]
+                        wind_deg_tomorrow = item["wind"].get("deg", 0)
                         description_tomorrow = item["weather"][0]["description"].capitalize()
                         break
                 else:
                     await message.answer("❌ Прогноз на завтра недоступен.")
                     return
 
+                wind_direction_tomorrow = get_wind_direction(wind_deg_tomorrow)
+
                 # Отправляем прогноз на завтра
                 await message.answer(
                     f" прогноз на завтра ({tomorrow_date}):\n\n"
                     f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
+                    f"💧 Влажность: {humidity_tomorrow}%\n"
+                    f"🌬️ Ветер: {wind_direction_tomorrow} {wind_speed_tomorrow} м/с\n"
                     f"☁️ Состояние: {description_tomorrow}"
                 )
 
