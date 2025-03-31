@@ -1,9 +1,10 @@
 import os
+import json
 import logging
 import asyncio
 from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
+from aiogram.filters import Command, Text
 from aiogram.enums import ParseMode
 from aiogram.utils.markdown import hbold
 from dotenv import load_dotenv
@@ -29,12 +30,23 @@ bot = Bot(
 )
 dp = Dispatcher()
 
-# Клавиатура
-weather_kb = [
-    [types.KeyboardButton(text="Москва")],
-    [types.KeyboardButton(text="Санкт-Петербург")],
-    [types.KeyboardButton(text="Киев")]
-]
+# Путь к файлу с городами
+CITIES_FILE = "cities.json"
+
+# Функция для чтения данных из файла
+def load_cities():
+    if not os.path.exists(CITIES_FILE):
+        with open(CITIES_FILE, "w", encoding="utf-8") as f:
+            json.dump({}, f, ensure_ascii=False)
+    with open(CITIES_FILE, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+# Функция для записи данных в файл
+def save_city(user_id, city):
+    cities = load_cities()
+    cities[str(user_id)] = city
+    with open(CITIES_FILE, "w", encoding="utf-8") as f:
+        json.dump(cities, f, ensure_ascii=False)
 
 # Функция для определения направления ветра
 def get_wind_direction(degrees):
@@ -55,29 +67,75 @@ def get_wind_direction(degrees):
     elif 292.5 <= degrees < 337.5:
         return "↖️ Северо-запад"
 
+# Клавиатура
+main_kb = [
+    [types.KeyboardButton(text="Мой город")],
+    [types.KeyboardButton(text="Изменить город")]
+]
+
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer(
-        f"🌤️ Привет, {hbold(message.from_user.full_name)}!\n"
-        "Отправь мне название города или выбери из кнопок:",
-        reply_markup=types.ReplyKeyboardMarkup(
-            keyboard=weather_kb,
-            resize_keyboard=True,
-            input_field_placeholder="Выберите город"
-        )
-    )
+    user_id = message.from_user.id
+    cities = load_cities()
 
-# Обработчик погоды
-@dp.message()
-async def get_weather(message: types.Message):
+    if str(user_id) not in cities:
+        await message.answer(
+            "🌤️ Привет! Введите название вашего города:",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+    else:
+        await message.answer(
+            "🌤️ Привет! Выберите действие:",
+            reply_markup=types.ReplyKeyboardMarkup(
+                keyboard=main_kb,
+                resize_keyboard=True
+            )
+        )
+
+# Обработчик ввода города
+@dp.message(Text)
+async def process_city_input(message: types.Message):
+    user_id = message.from_user.id
     city = message.text.strip()
+
     if not city.isprintable():
         await message.answer("❌ Название города содержит недопустимые символы.")
         return
 
+    # Проверяем, что город существует в API
+    async with aiohttp.ClientSession() as session:
+        url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
+        async with session.get(url, timeout=10) as response:
+            if response.status != 200:
+                data = await response.json()
+                error_message = data.get("message", "Неизвестная ошибка")
+                await message.answer(f"❌ Ошибка: {error_message}")
+                return
+
+    # Сохраняем город
+    save_city(user_id, city)
+    await message.answer(
+        f"✅ Город '{city}' успешно сохранён!",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=main_kb,
+            resize_keyboard=True
+        )
+    )
+
+# Обработчик кнопки "Мой город"
+@dp.message(Text("Мой город"))
+async def my_city_weather(message: types.Message):
+    user_id = message.from_user.id
+    cities = load_cities()
+
+    if str(user_id) not in cities:
+        await message.answer("❌ Город не задан. Пожалуйста, введите название города.")
+        return
+
+    city = cities[str(user_id)]
+
     try:
-        # Текущая погода
         async with aiohttp.ClientSession() as session:
             url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
             async with session.get(url, timeout=10) as response:
@@ -111,49 +169,17 @@ async def get_weather(message: types.Message):
                     f"☁️ Состояние: {description}"
                 )
 
-        # Прогноз на завтра
-        async with aiohttp.ClientSession() as session:
-            forecast_url = f"https://api.openweathermap.org/data/2.5/forecast?q={city}&appid={WEATHER_API_KEY}&units=metric&lang=ru"
-            async with session.get(forecast_url, timeout=10) as forecast_response:
-                if forecast_response.status != 200:
-                    await message.answer("❌ Не удалось получить прогноз погоды.")
-                    return
-
-                forecast_data = await forecast_response.json()
-                tomorrow = datetime.now() + timedelta(days=1)
-                tomorrow_date = tomorrow.strftime("%Y-%m-%d")
-
-                # Ищем прогноз на завтра
-                for item in forecast_data["list"]:
-                    forecast_time = datetime.strptime(item["dt_txt"], "%Y-%m-%d %H:%M:%S")
-                    if forecast_time.date() == tomorrow.date():
-                        temp_tomorrow = item["main"]["temp"]
-                        feels_like_tomorrow = item["main"]["feels_like"]
-                        humidity_tomorrow = item["main"]["humidity"]
-                        wind_speed_tomorrow = item["wind"]["speed"]
-                        wind_deg_tomorrow = item["wind"].get("deg", 0)
-                        description_tomorrow = item["weather"][0]["description"].capitalize()
-                        break
-                else:
-                    await message.answer("❌ Прогноз на завтра недоступен.")
-                    return
-
-                wind_direction_tomorrow = get_wind_direction(wind_deg_tomorrow)
-
-                # Отправляем прогноз на завтра
-                await message.answer(
-                    f" прогноз на завтра ({tomorrow_date}):\n\n"
-                    f"🌡️ Температура: {temp_tomorrow}°C (ощущается как {feels_like_tomorrow}°C)\n"
-                    f"💧 Влажность: {humidity_tomorrow}%\n"
-                    f"🌬️ Ветер: {wind_direction_tomorrow} {wind_speed_tomorrow} м/с\n"
-                    f"☁️ Состояние: {description_tomorrow}"
-                )
-
-    except asyncio.TimeoutError:
-        await message.answer("❌ Превышено время ожидания ответа от сервера.")
     except Exception as e:
         logger.error(f"Ошибка: {e}")
         await message.answer("❌ Не удалось получить данные. Проверьте название города.")
+
+# Обработчик кнопки "Изменить город"
+@dp.message(Text("Изменить город"))
+async def change_city(message: types.Message):
+    await message.answer(
+        "Введите новое название города:",
+        reply_markup=types.ReplyKeyboardRemove()
+    )
 
 # Запуск бота
 async def main():
