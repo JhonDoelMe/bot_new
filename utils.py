@@ -4,8 +4,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-REMINDERS_FILE = "reminders.json"  # Файл для сохранения состояний напоминаний
-CITIES_FILE = "cities.json"       # Файл для сохранения городов
+# Файлы для сохранения данных
+REMINDERS_FILE = "reminders.json"  # Файл для напоминаний
+CITIES_FILE = "cities.json"       # Файл для городов
 
 def load_reminders() -> dict:
     """
@@ -13,14 +14,7 @@ def load_reminders() -> dict:
     Возвращает словарь, где ключ — это ID пользователя, а значение — состояние.
     """
     if not os.path.exists(REMINDERS_FILE):
-        with open(REMINDERS_FILE, "w", encoding="utf-8") as file:
-            json.dump({}, file, ensure_ascii=False, indent=4)
-            def load_reminders() -> dict:
-    """
-    Загружает состояния напоминаний из файла JSON.
-    Возвращает словарь, где ключ — это ID пользователя, а значение — состояние.
-    """
-    if not os.path.exists(REMINDERS_FILE):
+        # Создаём пустой файл, если он не существует
         with open(REMINDERS_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False)
         return {}
@@ -28,6 +22,7 @@ def load_reminders() -> dict:
         with open(REMINDERS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
+        # Логируем ошибку и возвращаем пустой словарь
         logger.error(f"Ошибка при чтении файла {REMINDERS_FILE}: {e}")
         return {}
 
@@ -48,6 +43,7 @@ def load_cities() -> dict:
     Возвращает словарь, где ключ — ID пользователя, а значение — город.
     """
     if not os.path.exists(CITIES_FILE):
+        # Создаём пустой файл, если он не существует
         with open(CITIES_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, ensure_ascii=False)
         return {}
@@ -55,15 +51,16 @@ def load_cities() -> dict:
         with open(CITIES_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     except json.JSONDecodeError as e:
+        # Логируем ошибку и возвращаем пустой словарь
         logger.error(f"Ошибка при чтении файла {CITIES_FILE}: {e}")
         return {}
 
-def save_city(user_id: int, city: str) -> None:
+def save_city(user_id: str, city: str) -> None:
     """
     Сохраняет город для указанного пользователя в файл JSON.
     """
-    cities = load_cities()
-    cities[str(user_id)] = city.strip()
+    cities = load_cities()  # Загружаем текущие данные о городах
+    cities[user_id] = city.strip()  # Обновляем или добавляем новый город
     try:
         with open(CITIES_FILE, "w", encoding="utf-8") as f:
             json.dump(cities, f, ensure_ascii=False)
@@ -76,7 +73,7 @@ def get_wind_direction(degrees: float) -> str:
     Определяет направление ветра по углу в градусах.
     Нормализует угол для корректной обработки значений вне диапазона 0-360.
     """
-    degrees = degrees % 360
+    degrees = degrees % 360  # Нормализация значения угла
 
     if 337.5 <= degrees < 360 or 0 <= degrees < 22.5:
         return "⬆️ Север"
