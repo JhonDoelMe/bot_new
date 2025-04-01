@@ -1,11 +1,15 @@
 import requests
 import json
+import logging
 
-BASE_ALERTS_URL = "https://ubilling.net.ua/aerialalerts/static/js/map_data.json"
+# Настройка базового логгера
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+BASE_ALERTS_URL = "http://ubilling.net.ua/aerialalerts/"
 
 def get_air_raid_status(region):
     """
-    Получает статус воздушной тревоги для указанного региона, используя новый источник.
+    Получает статус воздушной тревоги для указанного региона с логированием.
 
     Args:
         region (str): Название региона.
@@ -13,22 +17,29 @@ def get_air_raid_status(region):
     Returns:
         str or None: Статус тревоги ("Тривога", "Відбій") или None в случае ошибки или отсутствия региона.
     """
+    logging.info(f"Запрошен статус тревоги для региона: '{region}'")
     try:
         response = requests.get(BASE_ALERTS_URL)
         response.raise_for_status()
-        data = response.json()
-        for item in data:
-            if item['region'].lower() == region.lower():
-                if item['status'] == 1:
-                    return "Тривога"
-                elif item['status'] == 0:
-                    return "Відбій"
+        raw_json = response.text
+        logging.info(f"Получен JSON от API: {raw_json}")
+        data = json.loads(raw_json)
+        if 'states' in data:
+            for state_name, state_params in data['states'].items():
+                logging.info(f"Сравнение: API регион '{state_name.lower()}' с запрошенным '{region.lower()}'")
+                if state_name.lower() == region.lower():
+                    if state_params['alertnow']:
+                        return "Тривога"
+                    else:
+                        return "Відбій"
+        else:
+            logging.warning("Ключ 'states' не найден в JSON-ответе.")
         return None  # Регион не найден
     except requests.exceptions.RequestException as e:
-        print(f"Ошибка при запросе к API тревог: {e}")
+        logging.error(f"Ошибка при запросе к API тревог: {e}")
         return None
     except json.JSONDecodeError as e:
-        print(f"Ошибка при декодировании JSON от API тревог: {e}")
+        logging.error(f"Ошибка при декодировании JSON от API тревог: {e}")
         return None
 
 def format_air_raid_message(region, status):

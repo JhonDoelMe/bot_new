@@ -257,18 +257,32 @@ def handle_alert_region_input(message):
     if user_id in user_states and user_states[user_id] == "waiting_for_alert_region":
         region = message.text
         del user_states[user_id]
+        print(f"Получен запрос на тревогу для региона: {region}")
         try:
             alert_status = air_raid.get_air_raid_status(region)
+            print(f"Статус тревоги, полученный из air_raid: {alert_status}")
             if alert_status:
                 formatted_message = air_raid.format_air_raid_message(region, alert_status)
+                print(f"Форматированное сообщение: {formatted_message}")
                 bot.reply_to(message, formatted_message, reply_markup=create_alert_menu())
             else:
-                bot.reply_to(message, f"Информация о воздушной тревоге для региона '{region}' не найдена.")
+                print(f"Информация о тревоге для региона '{region}' не найдена.")
+                bot.reply_to(message, f"Информация о воздушной тревоге для региона '{region}' не найдена.", reply_markup=create_alert_menu())
         except Exception as e:
-            print(f"Произошла ошибка при получении информации о тревоге: {e}")
-            bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.")
+            print(f"Произошла ошибка при получении информации о тревоге в main.py: {e}")
+            bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.", reply_markup=create_alert_menu())
     elif message.text == "🚨 Воздушная тревога":
         handle_alert_button(message)
+    elif message.text == "⬅️ Назад в меню":
+        handle_back_to_menu(message)
+    elif message.text == "✏️ Изменить город":
+        handle_change_city(message)
+    elif message.text == "🔔 Вкл/Выкл напоминание":
+        handle_remind_morning(message)
+    elif message.text == "🔄 Обновить прогноз":
+        handle_refresh_weather(message)
+    elif message.text == "🔄 Обновить курс":
+        handle_refresh_exchange(message)
 
 # --- Обработчик команды /weather ---
 @bot.message_handler(commands=['weather'])
@@ -367,7 +381,7 @@ def handle_any_message(message):
             conn.commit()
             conn.close()
             bot.reply_to(message, f"Предпочтительный город изменен на {city}.", reply_markup=create_weather_menu())
-        elif user_states[user_id] == "waiting_for_alert_region":
+        elif user_id in user_states and user_states[user_id] == "waiting_for_alert_region":
             handle_alert_region_input(message)
     elif message.text == "☀️ Погода":
         handle_weather_button(message)
