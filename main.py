@@ -231,7 +231,7 @@ def handle_city_input(message):
             bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
     elif user_id in user_states and user_states[user_id] == "waiting_for_save_city":
         if message.text == "Да, сохранить":
-            city_to_save = user_states.get(user_id + "_city_to_save") # Получаем город из временного ключа
+            city_to_save = user_states.get(str(user_id) + "_city_to_save") # Получаем город из временного ключа
             if city_to_save:
                 conn, cursor = connect_db()
                 cursor.execute("UPDATE users SET preferred_location=? WHERE user_id=?", (city_to_save, user_id))
