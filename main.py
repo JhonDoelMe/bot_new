@@ -3,7 +3,8 @@ import sqlite3
 import configparser
 import weather
 import currency
-import air_raid  # Добавляем импорт модуля air_raid
+import air_raid
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton # Добавляем импорты для меню
 
 # --- Чтение конфигурации из файла config.ini ---
 config = configparser.ConfigParser()
@@ -65,6 +66,17 @@ def create_tables():
     conn.commit()
     conn.close()
 
+# --- Функция для создания основного меню ---
+def create_main_menu():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    btn_weather = KeyboardButton("Погода")
+    btn_exchange = KeyboardButton("Курсы валют")
+    btn_alert = KeyboardButton("Воздушная тревога")
+    markup.row(btn_weather)
+    markup.row(btn_exchange)
+    markup.row(btn_alert)
+    return markup
+
 # --- Обработчик команды /start ---
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
@@ -74,10 +86,28 @@ def send_welcome(message):
     if cursor.fetchone() is None:
         cursor.execute("INSERT INTO users (user_id) VALUES (?)", (user_id,))
         conn.commit()
-        bot.reply_to(message, "Привет! Это универсальный помощник. Функционал в разработке...")
+        bot.reply_to(message, "Привет! Это универсальный помощник. Выберите пункт меню:", reply_markup=create_main_menu())
     else:
-        bot.reply_to(message, "С возвращением! Функционал в разработке...")
+        bot.reply_to(message, "С возвращением! Выберите пункт меню:", reply_markup=create_main_menu())
     conn.close()
+
+# --- Обработчик нажатия на кнопку "Погода" ---
+@bot.message_handler(func=lambda message: message.text == "Погода")
+def handle_weather_button(message):
+    bot.reply_to(message, "Введите название города, для которого вы хотите узнать погоду:")
+    # Здесь можно добавить логику для ожидания следующего сообщения от пользователя с названием города
+    # Пока что просто выведем подсказку
+    pass
+
+# --- Обработчик нажатия на кнопку "Курсы валют" ---
+@bot.message_handler(func=lambda message: message.text == "Курсы валют")
+def handle_exchange_button(message):
+    send_exchange_rates(message) # Используем существующую функцию для обработки команды /exchange
+
+# --- Обработчик нажатия на кнопку "Воздушная тревога" ---
+@bot.message_handler(func=lambda message: message.text == "Воздушная тревога")
+def handle_alert_button(message):
+    send_air_raid_alert(message) # Используем существующую функцию для обработки команды /alert
 
 # --- Обработчик команды /weather ---
 @bot.message_handler(commands=['weather'])
