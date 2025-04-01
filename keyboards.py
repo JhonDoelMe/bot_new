@@ -4,10 +4,10 @@ def create_main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     btn_weather = KeyboardButton("☀️ Погода")
     btn_exchange = KeyboardButton("💰 Курсы валют")
-    btn_alert = KeyboardButton("🚨 Воздушная тревога")
+    # btn_alert = KeyboardButton("🚨 Воздушная тревога") # Временно отключаем кнопку тревоги
     markup.row(btn_weather)
     markup.row(btn_exchange)
-    markup.row(btn_alert)
+    # markup.row(btn_alert) # Временно отключаем кнопку тревоги
     return markup
 
 def create_weather_preference_keyboard():
@@ -37,13 +37,13 @@ def create_exchange_menu():
     markup.row(btn_back_to_menu)
     return markup
 
-def create_alert_menu():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    btn_show_map = KeyboardButton("🗺️ Показать карту")
-    btn_region_list = KeyboardButton("📄 Список областей")
-    btn_check_region = KeyboardButton("📍 Узнать по региону")
-    btn_back_to_menu = KeyboardButton("⬅️ Назад в меню")
-    markup.row(btn_check_region)
-    markup.row(btn_show_map, btn_region_list)
-    markup.row(btn_back_to_menu)
-    return markup
+# def create_alert_menu(): # Временно отключаем меню тревог
+#     markup = ReplyKeyboardMarkup(resize_keyboard=True)
+#     btn_show_map = KeyboardButton("🗺️ Показать карту")
+#     btn_region_list = KeyboardButton("📄 Список областей")
+#     btn_check_region = KeyboardButton("📍 Узнать по региону")
+#     btn_back_to_menu = KeyboardButton("⬅️ Назад в меню")
+#     markup.row(btn_check_region)
+#     markup.row(btn_show_map, btn_region_list)
+#     markup.row(btn_back_to_menu)
+#     return markup
