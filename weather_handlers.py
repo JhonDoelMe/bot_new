@@ -2,6 +2,7 @@ from telebot import TeleBot
 from keyboards import create_weather_preference_keyboard, create_weather_menu
 import weather
 from db_utils import connect_db
+from core_handlers import user_states  # Удаляем импорт на уровне модуля
 
 def setup_weather_handlers(bot: TeleBot):
     @bot.message_handler(func=lambda message: message.text == "✅ Да, для моего города")
@@ -25,13 +26,13 @@ def setup_weather_handlers(bot: TeleBot):
                 bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
         else:
             bot.reply_to(message, "Предпочтительный город не найден. Пожалуйста, введите название города.")
-            from core_handlers import user_states
+            # from core_handlers import user_states # Импорт внутри функции уже был
             user_states[user_id] = "waiting_for_city"
 
     @bot.message_handler(func=lambda message: message.text == "❌ Нет, ввести другой")
     def handle_weather_preference_no(message):
         user_id = message.from_user.id
-        from core_handlers import user_states
+        from core_handlers import user_states # Оставляем импорт внутри функции
         user_states[user_id] = "waiting_for_city"
         bot.reply_to(message, "Введите название города:")
 
@@ -46,14 +47,14 @@ def setup_weather_handlers(bot: TeleBot):
         if preferred_location:
             bot.reply_to(message, "Выберите действие:", reply_markup=create_weather_menu())
         else:
-            from core_handlers import user_states
+            from core_handlers import user_states # Оставляем импорт внутри функции
             user_states[user_id] = "waiting_for_city"
             bot.reply_to(message, "Введите название города, для которого вы хотите узнать погоду:")
 
     @bot.message_handler(func=lambda message: message.text == "✏️ Изменить город")
     def handle_change_city(message):
         user_id = message.from_user.id
-        from core_handlers import user_states
+        from core_handlers import user_states # Оставляем импорт внутри функции
         user_states[user_id] = "waiting_for_new_city"
         bot.reply_to(message, "Введите название нового города:")
 
@@ -116,7 +117,7 @@ def setup_weather_handlers(bot: TeleBot):
 def handle_any_message_weather(bot: TeleBot, message):
     user_id = message.from_user.id
     city = message.text
-    from core_handlers import user_states
+    from core_handlers import user_states # Оставляем импорт внутри функции
     del user_states[user_id]
     print(f"Тип переменной city: {type(city)}, значение: '{city}'")
     try:
@@ -157,7 +158,7 @@ def handle_any_message_save_city(bot: TeleBot, message, user_states):
 def handle_any_message_new_city(bot: TeleBot, message):
     user_id = message.from_user.id
     city = message.text
-    from core_handlers import user_states
+    from core_handlers import user_states # Оставляем импорт внутри функции
     del user_states[user_id]
     conn, cursor = connect_db()
     cursor.execute("UPDATE users SET preferred_location=? WHERE user_id=?", (city, user_id))
