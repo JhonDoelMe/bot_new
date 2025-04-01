@@ -1,4 +1,4 @@
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 def create_main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -39,6 +39,11 @@ def create_exchange_menu():
 
 def create_alert_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    btn_show_map = KeyboardButton("🗺️ Показать карту")
+    btn_region_list = KeyboardButton("📄 Список областей")
+    btn_check_region = KeyboardButton("📍 Узнать по региону")
     btn_back_to_menu = KeyboardButton("⬅️ Назад в меню")
+    markup.row(btn_check_region)
+    markup.row(btn_show_map, btn_region_list)
     markup.row(btn_back_to_menu)
     return markup
