@@ -1,7 +1,8 @@
 import telebot
 import sqlite3
 import configparser
-import weather  # Добавляем импорт модуля weather
+import weather
+import currency  # Добавляем импорт модуля currency
 
 # --- Чтение конфигурации из файла config.ini ---
 config = configparser.ConfigParser()
@@ -93,6 +94,20 @@ def send_weather_info(message):
     except Exception as e:
         print(f"Произошла ошибка при обработке команды /weather: {e}")
         bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
+
+# --- Обработчик команды /exchange ---
+@bot.message_handler(commands=['exchange'])
+def send_exchange_rates(message):
+    try:
+        exchange_rates_data = currency.get_exchange_rates()
+        if exchange_rates_data:
+            formatted_rates = currency.format_exchange_rates(exchange_rates_data)
+            bot.reply_to(message, formatted_rates)
+        else:
+            bot.reply_to(message, "Не удалось получить курсы валют от НБУ.")
+    except Exception as e:
+        print(f"Произошла ошибка при обработке команды /exchange: {e}")
+        bot.reply_to(message, "Произошла непредвиденная ошибка при получении курсов валют.")
 
 # --- Запуск бота ---
 if __name__ == '__main__':
