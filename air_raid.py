@@ -1,11 +1,11 @@
 import requests
 import json
 
-BASE_ALERTS_URL = "https://alerts.ubilling.net.ua/api/v1/alerts"
+BASE_ALERTS_URL = "https://ubilling.net.ua/aerialalerts/static/js/map_data.json"
 
 def get_air_raid_status(region):
     """
-    Получает статус воздушной тревоги для указанного региона.
+    Получает статус воздушной тревоги для указанного региона, используя новый источник.
 
     Args:
         region (str): Название региона.
@@ -17,9 +17,12 @@ def get_air_raid_status(region):
         response = requests.get(BASE_ALERTS_URL)
         response.raise_for_status()
         data = response.json()
-        for alert in data:
-            if alert['region'].lower() == region.lower():
-                return alert['state']
+        for item in data:
+            if item['region'].lower() == region.lower():
+                if item['status'] == 1:
+                    return "Тривога"
+                elif item['status'] == 0:
+                    return "Відбій"
         return None  # Регион не найден
     except requests.exceptions.RequestException as e:
         print(f"Ошибка при запросе к API тревог: {e}")
