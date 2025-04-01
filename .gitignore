@@ -1,0 +1,26 @@
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyd
+*.egg-info/
+.python-version
+
+# Environment files
+.env
+venv/
+env/
+ENV/
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Configuration files with secrets
+config.ini
+
+# Other temporary files or directories
+temp/
+tmp/
+*.swp
+*.bak
