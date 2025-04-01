@@ -66,6 +66,9 @@ def create_tables():
     conn.commit()
     conn.close()
 
+# --- Словарь для хранения состояний пользователей ---
+user_states = {}
+
 # --- Функция для создания основного меню ---
 def create_main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -94,10 +97,9 @@ def send_welcome(message):
 # --- Обработчик нажатия на кнопку "Погода" ---
 @bot.message_handler(func=lambda message: message.text == "Погода")
 def handle_weather_button(message):
+    user_id = message.from_user.id
+    user_states[user_id] = "waiting_for_city" # Устанавливаем состояние ожидания ввода города
     bot.reply_to(message, "Введите название города, для которого вы хотите узнать погоду:")
-    # Здесь можно добавить логику для ожидания следующего сообщения от пользователя с названием города
-    # Пока что просто выведем подсказку
-    pass
 
 # --- Обработчик нажатия на кнопку "Курсы валют" ---
 @bot.message_handler(func=lambda message: message.text == "Курсы валют")
@@ -131,7 +133,7 @@ def send_weather_info(message):
 def send_exchange_rates(message):
     try:
         exchange_rates_data = currency.get_exchange_rates()
-        if exchange_rates_data is not None and len(exchange_rates_data) > 0: # Явно проверяем, что данные есть и не пустые
+        if exchange_rates_data is not None and len(exchange_rates_data) > 0:
             formatted_rates = currency.format_exchange_rates(exchange_rates_data)
             bot.reply_to(message, formatted_rates)
         else:
@@ -154,6 +156,25 @@ def send_air_raid_alert(message):
     except Exception as e:
         print(f"Произошла ошибка при обработке команды /alert: {e}")
         bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.")
+
+# --- Обработчик ввода названия города для погоды ---
+@bot.message_handler(func=lambda message: True) # Этот обработчик будет ловить все текстовые сообщения
+def handle_city_input(message):
+    user_id = message.from_user.id
+    if user_id in user_states and user_states[user_id] == "waiting_for_city":
+        city = message.text
+        del user_states[user_id] # Сбрасываем состояние после получения города
+        try:
+            weather_data = weather.get_weather(city)
+            if weather_data:
+                formatted_weather = weather.format_weather_data(weather_data)
+                bot.reply_to(message, formatted_weather)
+            else:
+                bot.reply_to(message, f"Не удалось получить погоду для города {city}.")
+        except Exception as e:
+            print(f"Произошла ошибка при получении погоды: {e}")
+            bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
+        # Если состояние пользователя не "waiting_for_city", сообщение будет обработано другими обработчиками
 
 # --- Запуск бота ---
 if __name__ == '__main__':
