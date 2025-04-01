@@ -5,9 +5,9 @@ import time
 import threading
 from db_utils import connect_db, create_tables
 from scheduler_utils import send_morning_weather_reminder, run_scheduler
-from weather_handlers import setup_weather_handlers
-from currency_handlers import setup_currency_handlers
 from core_handlers import setup_core_handlers, user_states
+from currency_handlers import setup_currency_handlers
+from weather_handlers import setup_weather_handlers
 from keyboards import create_main_menu
 
 # --- Чтение конфигурации из файла config.ini ---

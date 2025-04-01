@@ -2,7 +2,6 @@ from telebot import TeleBot
 from keyboards import create_weather_preference_keyboard, create_weather_menu
 import weather
 from db_utils import connect_db
-from core_handlers import user_states  # Удаляем импорт на уровне модуля
 
 def setup_weather_handlers(bot: TeleBot):
     @bot.message_handler(func=lambda message: message.text == "✅ Да, для моего города")
