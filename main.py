@@ -242,7 +242,7 @@ def handle_city_input(message):
                 bot.reply_to(message, "Произошла ошибка при сохранении города.")
         elif message.text == "Нет, спасибо":
             bot.reply_to(message, "Хорошо, не будем сохранять.")
-        if user_id + "_city_to_save" in user_states:
+        if str(user_id) + "_city_to_save" in user_states:
             del user_states[user_id + "_city_to_save"]
         del user_states[user_id] # Сбрасываем основное состояние
 
