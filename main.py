@@ -4,7 +4,11 @@ import configparser
 import weather
 import currency
 import air_raid
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton # Добавляем импорты для меню
+from keyboards import create_main_menu, create_weather_preference_keyboard, create_weather_menu, create_exchange_menu, create_alert_menu
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
+import schedule
+import time
+import datetime
 
 # --- Чтение конфигурации из файла config.ini ---
 config = configparser.ConfigParser()
@@ -29,6 +33,7 @@ def create_tables():
         preferred_location TEXT,
         preferred_currencies TEXT,
         notifications_enabled INTEGER DEFAULT 0,
+        morning_reminder_enabled INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -69,24 +74,34 @@ def create_tables():
 # --- Словарь для хранения состояний пользователей ---
 user_states = {}
 
-# --- Функция для создания основного меню ---
-def create_main_menu():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True)
-    btn_weather = KeyboardButton("Погода")
-    btn_exchange = KeyboardButton("Курсы валют")
-    btn_alert = KeyboardButton("Воздушная тревога")
-    markup.row(btn_weather)
-    markup.row(btn_exchange)
-    markup.row(btn_alert)
-    return markup
+# --- Функция для отправки утреннего напоминания о погоде ---
+def send_morning_weather_reminder():
+    conn, cursor = connect_db()
+    cursor.execute("SELECT user_id, preferred_location FROM users WHERE morning_reminder_enabled=1")
+    users_with_reminder = cursor.fetchall()
+    conn.close()
+    for user_id, preferred_location in users_with_reminder:
+        if preferred_location:
+            try:
+                weather_data = weather.get_weather(preferred_location)
+                if weather_data:
+                    formatted_weather = weather.format_weather_data(weather_data)
+                    bot.send_message(user_id, f"☀️ Доброе утро! Погода в вашем городе ({preferred_location}):\n\n{formatted_weather}")
+            except Exception as e:
+                print(f"Ошибка при отправке утреннего напоминания погоды для пользователя {user_id}: {e}")
 
-# --- Клавиатура с вариантами для предпочтительного города погоды ---
-def create_weather_preference_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-    btn_yes = KeyboardButton("Да, для моего города")
-    btn_no = KeyboardButton("Нет, ввести другой")
-    markup.row(btn_yes, btn_no)
-    return markup
+# --- Планирование утреннего напоминания ---
+schedule.every().day.at("08:00").do(send_morning_weather_reminder)
+
+def run_scheduler():
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
+
+import threading
+scheduler_thread = threading.Thread(target=run_scheduler)
+scheduler_thread.daemon = True
+scheduler_thread.start()
 
 # --- Обработчик команды /start ---
 @bot.message_handler(commands=['start'])
@@ -104,7 +119,7 @@ def send_welcome(message):
     conn.close()
 
 # --- Обработчик ответа на предложение погоды для сохраненного города ---
-@bot.message_handler(func=lambda message: message.text == "Да, для моего города")
+@bot.message_handler(func=lambda message: message.text == "✅ Да, для моего города")
 def handle_weather_preference_yes(message):
     user_id = message.from_user.id
     conn, cursor = connect_db()
@@ -117,7 +132,7 @@ def handle_weather_preference_yes(message):
             weather_data = weather.get_weather(preferred_location)
             if weather_data:
                 formatted_weather = weather.format_weather_data(weather_data)
-                bot.reply_to(message, formatted_weather)
+                bot.reply_to(message, formatted_weather, reply_markup=create_weather_menu())
             else:
                 bot.reply_to(message, f"Не удалось получить погоду для города {preferred_location}.")
         except Exception as e:
@@ -128,14 +143,14 @@ def handle_weather_preference_yes(message):
         user_states[user_id] = "waiting_for_city"
 
 # --- Обработчик ответа на предложение погоды для сохраненного города ---
-@bot.message_handler(func=lambda message: message.text == "Нет, ввести другой")
+@bot.message_handler(func=lambda message: message.text == "❌ Нет, ввести другой")
 def handle_weather_preference_no(message):
     user_id = message.from_user.id
     user_states[user_id] = "waiting_for_city"
     bot.reply_to(message, "Введите название города:")
 
 # --- Обработчик нажатия на кнопку "Погода" ---
-@bot.message_handler(func=lambda message: message.text == "Погода")
+@bot.message_handler(func=lambda message: message.text == "☀️ Погода")
 def handle_weather_button(message):
     user_id = message.from_user.id
     conn, cursor = connect_db()
@@ -144,20 +159,51 @@ def handle_weather_button(message):
     preferred_location = result[0] if result else None
     conn.close()
     if preferred_location:
-        bot.reply_to(message, f"Ваш предпочтительный город: {preferred_location}. Хотите узнать погоду для него?", reply_markup=create_weather_preference_keyboard())
+        bot.reply_to(message, "Выберите действие:", reply_markup=create_weather_menu())
     else:
         user_states[user_id] = "waiting_for_city"
         bot.reply_to(message, "Введите название города, для которого вы хотите узнать погоду:")
 
 # --- Обработчик нажатия на кнопку "Курсы валют" ---
-@bot.message_handler(func=lambda message: message.text == "Курсы валют")
+@bot.message_handler(func=lambda message: message.text == "💰 Курсы валют")
 def handle_exchange_button(message):
-    send_exchange_rates(message) # Используем существующую функцию для обработки команды /exchange
+    bot.reply_to(message, "Выберите действие:", reply_markup=create_exchange_menu())
 
 # --- Обработчик нажатия на кнопку "Воздушная тревога" ---
-@bot.message_handler(func=lambda message: message.text == "Воздушная тревога")
+@bot.message_handler(func=lambda message: message.text == "🚨 Воздушная тревога")
 def handle_alert_button(message):
-    send_air_raid_alert(message) # Используем существующую функцию для обработки команды /alert
+    bot.reply_to(message, "Выберите действие:", reply_markup=create_alert_menu())
+
+# --- Обработчик кнопки "⬅️ Назад в меню" ---
+@bot.message_handler(func=lambda message: message.text == "⬅️ Назад в меню")
+def handle_back_to_menu(message):
+    bot.reply_to(message, "Возвращаемся в главное меню:", reply_markup=create_main_menu())
+
+# --- Обработчик кнопки "✏️ Изменить город" ---
+@bot.message_handler(func=lambda message: message.text == "✏️ Изменить город")
+def handle_change_city(message):
+    user_id = message.from_user.id
+    user_states[user_id] = "waiting_for_new_city"
+    bot.reply_to(message, "Введите название нового города:")
+
+# --- Обработчик кнопки "⏰ Напоминать утром" ---
+@bot.message_handler(func=lambda message: message.text == "⏰ Напоминать утром")
+def handle_remind_morning(message):
+    user_id = message.from_user.id
+    conn, cursor = connect_db()
+    cursor.execute("SELECT morning_reminder_enabled FROM users WHERE user_id=?", (user_id,))
+    result = cursor.fetchone()
+    reminder_enabled = result[0] if result else 0
+
+    new_reminder_status = 1 if reminder_enabled == 0 else 0
+    cursor.execute("UPDATE users SET morning_reminder_enabled=? WHERE user_id=?", (new_reminder_status, user_id))
+    conn.commit()
+    conn.close()
+
+    if new_reminder_status == 1:
+        bot.reply_to(message, "Утренние напоминания о погоде включены. Вы будете получать прогноз каждый день в 8:00.")
+    else:
+        bot.reply_to(message, "Утренние напоминания о погоде выключены.")
 
 # --- Обработчик команды /weather ---
 @bot.message_handler(commands=['weather'])
@@ -167,7 +213,7 @@ def send_weather_info(message):
         weather_data = weather.get_weather(city)
         if weather_data:
             formatted_weather = weather.format_weather_data(weather_data)
-            bot.reply_to(message, formatted_weather)
+            bot.reply_to(message, formatted_weather, reply_markup=create_weather_menu())
         else:
             bot.reply_to(message, f"Не удалось получить погоду для города {city}.")
     except IndexError:
@@ -183,7 +229,7 @@ def send_exchange_rates(message):
         exchange_rates_data = currency.get_exchange_rates()
         if exchange_rates_data is not None and len(exchange_rates_data) > 0:
             formatted_rates = currency.format_exchange_rates(exchange_rates_data)
-            bot.reply_to(message, formatted_rates)
+            bot.reply_to(message, formatted_rates, reply_markup=create_exchange_menu())
         else:
             bot.reply_to(message, "Не удалось получить курсы валют от НБУ.")
     except Exception as e:
@@ -198,53 +244,74 @@ def send_air_raid_alert(message):
         alert_status = air_raid.get_air_raid_status(region)
         if alert_status is not None:
             formatted_message = air_raid.format_air_raid_message(region, alert_status)
-            bot.reply_to(message, formatted_message)
+            bot.reply_to(message, formatted_message, reply_markup=create_alert_menu())
         else:
             bot.reply_to(message, f"Не удалось получить информацию о воздушной тревоге для {region}.")
     except Exception as e:
         print(f"Произошла ошибка при обработке команды /alert: {e}")
         bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.")
 
-# --- Обработчик ввода названия города для погоды и сохранения предпочтения ---
-@bot.message_handler(func=lambda message: True) # Этот обработчик будет ловить все текстовые сообщения
-def handle_city_input(message):
+# --- Обработчик ввода названия города ---
+@bot.message_handler(func=lambda message: True)
+def handle_any_message(message):
     user_id = message.from_user.id
-    if user_id in user_states and user_states[user_id] == "waiting_for_city":
-        city = message.text
-        del user_states[user_id] # Сбрасываем состояние после получения города
-        print(f"Тип переменной city: {type(city)}, значение: '{city}'") # Добавили отладочный вывод
-        try:
-            weather_data = weather.get_weather(city)
-            if weather_data:
-                formatted_weather = weather.format_weather_data(weather_data)
-                # Предлагаем сохранить город
-                markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-                btn_yes = KeyboardButton("Да, сохранить")
-                btn_no = KeyboardButton("Нет, спасибо")
-                markup.row(btn_yes, btn_no)
-                bot.reply_to(message, formatted_weather + "\nСохранить этот город как предпочтительный?", reply_markup=markup)
-                user_states[str(user_id) + "_city_to_save"] = city # Сохраняем город во временном ключе (теперь ключ строка)
-            else:
-                bot.reply_to(message, f"Не удалось получить погоду для города {city}.")
-        except Exception as e:
-            print(f"Произошла ошибка при получении погоды: {e}")
-            bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
-    elif user_id in user_states and user_states[user_id] == "waiting_for_save_city":
-        if message.text == "Да, сохранить":
-            city_to_save = user_states.get(str(user_id) + "_city_to_save") # Получаем город из временного ключа (теперь ключ строка)
-            if city_to_save:
-                conn, cursor = connect_db()
-                cursor.execute("UPDATE users SET preferred_location=? WHERE user_id=?", (city_to_save, user_id))
-                conn.commit()
-                conn.close()
-                bot.reply_to(message, f"Город {city_to_save} сохранен как предпочтительный.")
-            else:
-                bot.reply_to(message, "Произошла ошибка при сохранении города.")
-        elif message.text == "Нет, спасибо":
-            bot.reply_to(message, "Хорошо, не будем сохранять.")
-        if str(user_id) + "_city_to_save" in user_states: # Проверяем строковый ключ
-            del user_states[str(user_id) + "_city_to_save"]
-        del user_states[user_id] # Сбрасываем основное состояние
+    if user_id in user_states:
+        if user_states[user_id] == "waiting_for_city":
+            city = message.text
+            del user_states[user_id]
+            print(f"Тип переменной city: {type(city)}, значение: '{city}'")
+            try:
+                weather_data = weather.get_weather(city)
+                if weather_data:
+                    formatted_weather = weather.format_weather_data(weather_data)
+                    markup = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+                    btn_yes = KeyboardButton("Да, сохранить")
+                    btn_no = KeyboardButton("Нет, спасибо")
+                    markup.row(btn_yes, btn_no)
+                    bot.reply_to(message, formatted_weather + "\nСохранить этот город как предпочтительный?", reply_markup=markup)
+                    user_states[str(user_id) + "_city_to_save"] = city
+                    user_states[user_id] = "waiting_for_save_city"
+                else:
+                    bot.reply_to(message, f"Не удалось получить погоду для города {city}.")
+            except Exception as e:
+                print(f"Произошла ошибка при получении погоды: {e}")
+                bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
+        elif user_states[user_id] == "waiting_for_save_city":
+            if message.text == "Да, сохранить":
+                city_to_save = user_states.get(str(user_id) + "_city_to_save")
+                if city_to_save:
+                    conn, cursor = connect_db()
+                    cursor.execute("UPDATE users SET preferred_location=? WHERE user_id=?", (city_to_save, user_id))
+                    conn.commit()
+                    conn.close()
+                    bot.reply_to(message, f"Город {city_to_save} сохранен как предпочтительный.", reply_markup=create_weather_menu())
+                else:
+                    bot.reply_to(message, "Произошла ошибка при сохранении города.", reply_markup=create_weather_menu())
+            elif message.text == "Нет, спасибо":
+                bot.reply_to(message, "Хорошо, не будем сохранять.", reply_markup=create_weather_menu())
+            if str(user_id) + "_city_to_save" in user_states:
+                del user_states[str(user_id) + "_city_to_save"]
+            del user_states[user_id]
+        elif user_states[user_id] == "waiting_for_new_city":
+            city = message.text
+            del user_states[user_id]
+            conn, cursor = connect_db()
+            cursor.execute("UPDATE users SET preferred_location=? WHERE user_id=?", (city, user_id))
+            conn.commit()
+            conn.close()
+            bot.reply_to(message, f"Предпочтительный город изменен на {city}.", reply_markup=create_weather_menu())
+    elif message.text == "☀️ Погода":
+        handle_weather_button(message)
+    elif message.text == "💰 Курсы валют":
+        handle_exchange_button(message)
+    elif message.text == "🚨 Воздушная тревога":
+        handle_alert_button(message)
+    elif message.text == "⬅️ Назад в меню":
+        handle_back_to_menu(message)
+    elif message.text == "✏️ Изменить город":
+        handle_change_city(message)
+    elif message.text == "⏰ Напоминать утром":
+        handle_remind_morning(message)
 
 # --- Запуск бота ---
 if __name__ == '__main__':
