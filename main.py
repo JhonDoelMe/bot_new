@@ -178,7 +178,9 @@ def handle_exchange_button(message):
 # --- Обработчик нажатия на кнопку "Воздушная тревога" ---
 @bot.message_handler(func=lambda message: message.text == "🚨 Воздушная тревога")
 def handle_alert_button(message):
-    bot.reply_to(message, "Выберите действие:", reply_markup=create_alert_menu())
+    user_id = message.from_user.id
+    bot.reply_to(message, "Введите название региона, для которого вы хотите узнать статус воздушной тревоги:", reply_markup=create_alert_menu())
+    user_states[user_id] = "waiting_for_alert_region"
 
 # --- Обработчик кнопки "⬅️ Назад в меню" ---
 @bot.message_handler(func=lambda message: message.text == "⬅️ Назад в меню")
@@ -248,6 +250,26 @@ def handle_refresh_exchange(message):
         print(f"Произошла ошибка при обновлении курсов валют: {e}")
         bot.reply_to(message, "Произошла непредвиденная ошибка при получении курсов валют.")
 
+# --- Обработчик ввода региона для воздушной тревоги ---
+@bot.message_handler(func=lambda message: True)
+def handle_alert_region_input(message):
+    user_id = message.from_user.id
+    if user_id in user_states and user_states[user_id] == "waiting_for_alert_region":
+        region = message.text
+        del user_states[user_id]
+        try:
+            alert_status = air_raid.get_air_raid_status(region)
+            if alert_status:
+                formatted_message = air_raid.format_air_raid_message(region, alert_status)
+                bot.reply_to(message, formatted_message, reply_markup=create_alert_menu())
+            else:
+                bot.reply_to(message, f"Информация о воздушной тревоге для региона '{region}' не найдена.")
+        except Exception as e:
+            print(f"Произошла ошибка при получении информации о тревоге: {e}")
+            bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.")
+    elif message.text == "🚨 Воздушная тревога":
+        handle_alert_button(message)
+
 # --- Обработчик команды /weather ---
 @bot.message_handler(commands=['weather'])
 def send_weather_info(message):
@@ -282,14 +304,16 @@ def send_exchange_rates(message):
 # --- Обработчик команды /alert ---
 @bot.message_handler(commands=['alert'])
 def send_air_raid_alert(message):
-    region = "Дніпропетровська область"  # Указываем регион по умолчанию
     try:
+        region = message.text.split()[1]  # Получаем название региона из сообщения пользователя
         alert_status = air_raid.get_air_raid_status(region)
-        if alert_status is not None:
+        if alert_status:
             formatted_message = air_raid.format_air_raid_message(region, alert_status)
             bot.reply_to(message, formatted_message, reply_markup=create_alert_menu())
         else:
-            bot.reply_to(message, f"Не удалось получить информацию о воздушной тревоге для {region}.")
+            bot.reply_to(message, f"Информация о воздушной тревоге для региона '{region}' не найдена.")
+    except IndexError:
+        bot.reply_to(message, "Пожалуйста, укажите название региона, например: /alert Днепропетровская область")
     except Exception as e:
         print(f"Произошла ошибка при обработке команды /alert: {e}")
         bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.")
@@ -343,6 +367,8 @@ def handle_any_message(message):
             conn.commit()
             conn.close()
             bot.reply_to(message, f"Предпочтительный город изменен на {city}.", reply_markup=create_weather_menu())
+        elif user_states[user_id] == "waiting_for_alert_region":
+            handle_alert_region_input(message)
     elif message.text == "☀️ Погода":
         handle_weather_button(message)
     elif message.text == "💰 Курсы валют":
