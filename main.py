@@ -68,6 +68,12 @@ def create_tables():
         raw_data TEXT
     )
     """)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN morning_reminder_enabled INTEGER DEFAULT 0")
+        conn.commit()
+        print("Столбец morning_reminder_enabled успешно добавлен в таблицу users.")
+    except sqlite3.OperationalError:
+        print("Столбец morning_reminder_enabled уже существует в таблице users.")
     conn.commit()
     conn.close()
 
@@ -201,9 +207,9 @@ def handle_remind_morning(message):
     conn.close()
 
     if new_reminder_status == 1:
-        bot.reply_to(message, "Утренние напоминания о погоде включены. Вы будете получать прогноз каждый день в 8:00.")
+        bot.reply_to(message, "Утренние напоминания о погоде включены. Вы будете получать прогноз каждый день в 8:00.", reply_markup=create_weather_menu())
     else:
-        bot.reply_to(message, "Утренние напоминания о погоде выключены.")
+        bot.reply_to(message, "Утренние напоминания о погоде выключены.", reply_markup=create_weather_menu())
 
 # --- Обработчик команды /weather ---
 @bot.message_handler(commands=['weather'])
