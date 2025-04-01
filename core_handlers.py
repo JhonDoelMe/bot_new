@@ -1,8 +1,8 @@
 from telebot import TeleBot
 from keyboards import create_main_menu
 from db_utils import connect_db
-from weather_handlers import setup_weather_handlers, handle_any_message_weather, handle_any_message_save_city, handle_any_message_new_city, handle_weather_button, handle_change_city, handle_remind_morning, handle_refresh_weather
-from currency_handlers import setup_currency_handlers, handle_exchange_button, handle_refresh_exchange
+from weather_handlers import setup_weather_handlers, handle_any_message_weather, handle_any_message_save_city, handle_any_message_new_city
+from currency_handlers import setup_currency_handlers
 
 user_states = {}
 
@@ -25,20 +25,12 @@ def setup_core_handlers(bot: TeleBot):
                 handle_any_message_save_city(bot, message, user_states)
             elif user_states[user_id] == "waiting_for_new_city":
                 handle_any_message_new_city(bot, message)
-        elif message.text == "☀️ Погода":
-            handle_weather_button(message)
         elif message.text == "💰 Курсы валют":
-            handle_exchange_button(message)
+            pass # Обработчик будет вызван декоратором в currency_handlers.py
         elif message.text == "⬅️ Назад в меню":
             handle_back_to_menu(message)
-        elif message.text == "✏️ Изменить город":
-            handle_change_city(message)
-        elif message.text == "🔔 Вкл/Выкл напоминание":
-            handle_remind_morning(message)
-        elif message.text == "🔄 Обновить прогноз":
-            handle_refresh_weather(message)
         elif message.text == "🔄 Обновить курс":
-            handle_refresh_exchange(message)
+            pass # Обработчик будет вызван декоратором в currency_handlers.py
         elif message.text.startswith('/'):
             pass # Игнорируем другие команды, если они не обработаны явно
 
