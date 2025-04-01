@@ -18,6 +18,7 @@ Thumbs.db
 
 # Configuration files with secrets
 config.ini
+assistant_bot.db
 
 # Other temporary files or directories
 temp/

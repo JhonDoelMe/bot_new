@@ -10,8 +10,13 @@ def get_exchange_rates():
     try:
         response = requests.get(NBU_EXCHANGE_RATE_URL)
         response.raise_for_status()  # Проверить на ошибки HTTP
-        data = response.json()
-        return data
+        try:
+            data = response.json()
+            return data
+        except json.JSONDecodeError:
+            print("Ошибка: Ответ от API курсов валют не является JSON.")
+            print("Содержимое ответа:", response.text)
+            return None
     except requests.exceptions.RequestException as e:
         print(f"Ошибка при запросе курсов валют: {e}")
         return None
