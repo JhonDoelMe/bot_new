@@ -2,7 +2,8 @@ import telebot
 import sqlite3
 import configparser
 import weather
-import currency  # Добавляем импорт модуля currency
+import currency
+import air_raid  # Добавляем импорт модуля air_raid
 
 # --- Чтение конфигурации из файла config.ini ---
 config = configparser.ConfigParser()
@@ -108,6 +109,21 @@ def send_exchange_rates(message):
     except Exception as e:
         print(f"Произошла ошибка при обработке команды /exchange: {e}")
         bot.reply_to(message, "Произошла непредвиденная ошибка при получении курсов валют.")
+
+# --- Обработчик команды /alert ---
+@bot.message_handler(commands=['alert'])
+def send_air_raid_alert(message):
+    region = "Дніпропетровська область"  # Указываем регион по умолчанию
+    try:
+        alert_status = air_raid.get_air_raid_status(region)
+        if alert_status is not None:
+            formatted_message = air_raid.format_air_raid_message(region, alert_status)
+            bot.reply_to(message, formatted_message)
+        else:
+            bot.reply_to(message, f"Не удалось получить информацию о воздушной тревоге для {region}.")
+    except Exception as e:
+        print(f"Произошла ошибка при обработке команды /alert: {e}")
+        bot.reply_to(message, "Произошла непредвиденная ошибка при получении информации о тревоге.")
 
 # --- Запуск бота ---
 if __name__ == '__main__':
