@@ -192,8 +192,8 @@ def handle_change_city(message):
     user_states[user_id] = "waiting_for_new_city"
     bot.reply_to(message, "Введите название нового города:")
 
-# --- Обработчик кнопки "⏰ Напоминать утром" ---
-@bot.message_handler(func=lambda message: message.text == "⏰ Напоминать утром")
+# --- Обработчик кнопки "🔔 Вкл/Выкл напоминание" ---
+@bot.message_handler(func=lambda message: message.text == "🔔 Вкл/Выкл напоминание")
 def handle_remind_morning(message):
     user_id = message.from_user.id
     conn, cursor = connect_db()
@@ -210,6 +210,43 @@ def handle_remind_morning(message):
         bot.reply_to(message, "Утренние напоминания о погоде включены. Вы будете получать прогноз каждый день в 8:00.", reply_markup=create_weather_menu())
     else:
         bot.reply_to(message, "Утренние напоминания о погоде выключены.", reply_markup=create_weather_menu())
+
+# --- Обработчик кнопки "🔄 Обновить прогноз" ---
+@bot.message_handler(func=lambda message: message.text == "🔄 Обновить прогноз")
+def handle_refresh_weather(message):
+    user_id = message.from_user.id
+    conn, cursor = connect_db()
+    cursor.execute("SELECT preferred_location FROM users WHERE user_id=?", (user_id,))
+    result = cursor.fetchone()
+    preferred_location = result[0] if result else None
+    conn.close()
+    if preferred_location:
+        try:
+            weather_data = weather.get_weather(preferred_location)
+            if weather_data:
+                formatted_weather = weather.format_weather_data(weather_data)
+                bot.reply_to(message, formatted_weather, reply_markup=create_weather_menu())
+            else:
+                bot.reply_to(message, f"Не удалось обновить погоду для города {preferred_location}.")
+        except Exception as e:
+            print(f"Произошла ошибка при обновлении погоды: {e}")
+            bot.reply_to(message, "Произошла непредвиденная ошибка при обновлении погоды.")
+    else:
+        bot.reply_to(message, "Предпочтительный город не найден. Пожалуйста, введите название города.")
+
+# --- Обработчик кнопки "🔄 Обновить курс" ---
+@bot.message_handler(func=lambda message: message.text == "🔄 Обновить курс")
+def handle_refresh_exchange(message):
+    try:
+        exchange_rates_data = currency.get_exchange_rates()
+        if exchange_rates_data is not None and len(exchange_rates_data) > 0:
+            formatted_rates = currency.format_exchange_rates(exchange_rates_data)
+            bot.reply_to(message, formatted_rates, reply_markup=create_exchange_menu())
+        else:
+            bot.reply_to(message, "Не удалось получить курсы валют от НБУ.")
+    except Exception as e:
+        print(f"Произошла ошибка при обновлении курсов валют: {e}")
+        bot.reply_to(message, "Произошла непредвиденная ошибка при получении курсов валют.")
 
 # --- Обработчик команды /weather ---
 @bot.message_handler(commands=['weather'])
@@ -316,8 +353,12 @@ def handle_any_message(message):
         handle_back_to_menu(message)
     elif message.text == "✏️ Изменить город":
         handle_change_city(message)
-    elif message.text == "⏰ Напоминать утром":
+    elif message.text == "🔔 Вкл/Выкл напоминание":
         handle_remind_morning(message)
+    elif message.text == "🔄 Обновить прогноз":
+        handle_refresh_weather(message)
+    elif message.text == "🔄 Обновить курс":
+        handle_refresh_exchange(message)
 
 # --- Запуск бота ---
 if __name__ == '__main__':

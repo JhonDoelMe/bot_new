@@ -20,16 +20,20 @@ def create_weather_preference_keyboard():
 def create_weather_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
     btn_change_city = KeyboardButton("✏️ Изменить город")
-    btn_remind_morning = KeyboardButton("⏰ Напоминать утром")
+    btn_refresh_weather = KeyboardButton("🔄 Обновить прогноз")
+    btn_remind_morning = KeyboardButton("🔔 Вкл/Выкл напоминание")
     btn_back_to_menu = KeyboardButton("⬅️ Назад в меню")
     markup.row(btn_change_city)
+    markup.row(btn_refresh_weather)
     markup.row(btn_remind_morning)
     markup.row(btn_back_to_menu)
     return markup
 
 def create_exchange_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True)
+    btn_refresh_exchange = KeyboardButton("🔄 Обновить курс")
     btn_back_to_menu = KeyboardButton("⬅️ Назад в меню")
+    markup.row(btn_refresh_exchange)
     markup.row(btn_back_to_menu)
     return markup
 
