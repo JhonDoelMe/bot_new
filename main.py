@@ -212,6 +212,7 @@ def handle_city_input(message):
     if user_id in user_states and user_states[user_id] == "waiting_for_city":
         city = message.text
         del user_states[user_id] # Сбрасываем состояние после получения города
+        print(f"Тип переменной city: {type(city)}, значение: '{city}'") # Добавили отладочный вывод
         try:
             weather_data = weather.get_weather(city)
             if weather_data:
@@ -222,8 +223,7 @@ def handle_city_input(message):
                 btn_no = KeyboardButton("Нет, спасибо")
                 markup.row(btn_yes, btn_no)
                 bot.reply_to(message, formatted_weather + "\nСохранить этот город как предпочтительный?", reply_markup=markup)
-                user_states[user_id] = "waiting_for_save_city" # Устанавливаем новое состояние
-                user_states[user_id + "_city_to_save"] = city # Сохраняем город во временном ключе
+                user_states[str(user_id) + "_city_to_save"] = city # Сохраняем город во временном ключе (теперь ключ строка)
             else:
                 bot.reply_to(message, f"Не удалось получить погоду для города {city}.")
         except Exception as e:
@@ -231,7 +231,7 @@ def handle_city_input(message):
             bot.reply_to(message, "Произошла непредвиденная ошибка при получении погоды.")
     elif user_id in user_states and user_states[user_id] == "waiting_for_save_city":
         if message.text == "Да, сохранить":
-            city_to_save = user_states.get(str(user_id) + "_city_to_save") # Получаем город из временного ключа
+            city_to_save = user_states.get(str(user_id) + "_city_to_save") # Получаем город из временного ключа (теперь ключ строка)
             if city_to_save:
                 conn, cursor = connect_db()
                 cursor.execute("UPDATE users SET preferred_location=? WHERE user_id=?", (city_to_save, user_id))
@@ -242,8 +242,8 @@ def handle_city_input(message):
                 bot.reply_to(message, "Произошла ошибка при сохранении города.")
         elif message.text == "Нет, спасибо":
             bot.reply_to(message, "Хорошо, не будем сохранять.")
-        if str(user_id) + "_city_to_save" in user_states:
-            del user_states[user_id + "_city_to_save"]
+        if str(user_id) + "_city_to_save" in user_states: # Проверяем строковый ключ
+            del user_states[str(user_id) + "_city_to_save"]
         del user_states[user_id] # Сбрасываем основное состояние
 
 # --- Запуск бота ---
