@@ -131,7 +131,7 @@ def send_weather_info(message):
 def send_exchange_rates(message):
     try:
         exchange_rates_data = currency.get_exchange_rates()
-        if exchange_rates_data:
+        if exchange_rates_data is not None and len(exchange_rates_data) > 0: # Явно проверяем, что данные есть и не пустые
             formatted_rates = currency.format_exchange_rates(exchange_rates_data)
             bot.reply_to(message, formatted_rates)
         else:
